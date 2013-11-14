@@ -93,11 +93,6 @@ i_TWDROfferComponent /i_TWDROfferMax, i_TWDROfferPrice/
 i_Type1MixedConstraintRHS /i_MixedConstraintSense, i_MixedConstraintLimit1, i_MixedConstraintLimit2/
 
 i_CVP /i_DeficitBusGeneration, i_SurplusBusGeneration, i_Deficit6sReserve_CE, i_Deficit60sReserve_CE, i_DeficitBranchGroupConstraint, i_SurplusBranchGroupConstraint, i_DeficitGenericConstraint, i_SurplusGenericConstraint, i_DeficitRampRate, i_SurplusRampRate, i_DeficitACNodeConstraint, i_SurplusACNodeConstraint, i_DeficitBranchFlow, i_SurplusBranchFlow, i_DeficitMnodeConstraint, i_SurplusMnodeConstraint, i_Type1DeficitMixedConstraint, i_Type1SurplusMixedConstraint, i_Deficit6sReserve_ECE, i_Deficit60sReserve_ECE/
-
-*Added in for EoP stuff. i_Tradeperiod is not ordered correctly by the sql2gms program for some reason so I have to hard code here
-*This is ok, because we don't have the day with 50 periods in the 4 months. For the full year this may need to be changed
-i_TradePeriod /TP1*TP48/
-
 ;
 
 SETS
@@ -126,16 +121,6 @@ o_OfferIsland_TP(i_DateTime,i_Offer,i_Island)                                   
 ;
 
 PARAMETERS
-
-
-*Variable VoLL update
-*TradePeriodBusDeficit_var(i_Tradeperiod,i_Bus)                                                 'A variable per node value of VoLL'
-
-*EoP update
-o_EoPgen(i_Node)                                                                 'The Ouput MW generation at the end of each period'
-i_EoPgen(i_Node)                                                                 'The Input MW generation for the start of the new period. o_EoPgen(n-1) = i_EoPgen(n)'
-o_EoPgen_dontwipe(i_TradePeriod,i_Node)                                          'Only used for outputting for debugging'
-
 *Main iteration counter
 IterationCount                                                                   'Iteration counter for the solve'
 *MIP logic
@@ -206,13 +191,10 @@ o_FIRPrice_TP(i_DateTime,i_Island)                                              
 o_SIRPrice_TP(i_DateTime,i_Island)                                               'Output $/MW price for SIR reserve classes for each trade period'
 o_FIRViolation_TP(i_DateTime,i_Island)                                           'Violtaiton MW for FIR reserve classes for each trade period'
 o_SIRViolation_TP(i_DateTime,i_Island)                                           'Violtaiton MW for SIR reserve classes for each trade period'
-o_NodeGeneration_TP(i_DateTime,i_Node)                                           'Output MW generation at each node for the different time periods'
-o_NodeIR_TP(i_DateTime,i_Node,i_ReserveClass)                                    'Output MW of reserve provided at a node for each reserve class'
-o_NodeLoad_TP(i_DateTime,i_Node)                                                 'Output MW load at each node for the different time periods'
+o_NodeGeneration_TP(i_DateTime,i_Node)                                           'Ouput MW generation at each node for the different time periods'
+o_NodeLoad_TP(i_DateTime,i_Node)                                                 'Ouput MW load at each node for the different time periods'
 o_NodePrice_TP(i_DateTime,i_Node)                                                'Output $/MW price at each node for the different time periods'
-o_IRPrice_TP(i_DateTime,i_Island,i_ReserveClass)                                 'Output IR $/MW price'
 o_NodeRevenue_TP(i_DateTime,i_Node)                                              'Output $ revenue at each node for the different time periods'
-o_NodeRevenueIR_TP(i_DateTime,i_Node)                                            'Output $ revenue from IR at each node for the different time periods'
 o_NodeCost_TP(i_DateTime,i_Node)                                                 'Output $ cost at each node for the different time periods'
 o_NodeDeficit_TP(i_DateTime,i_Node)                                              'Output node deficit violation for each trade period'
 o_NodeSurplus_TP(i_DateTime,i_Node)                                              'Output node surplus violation for each trade period'
@@ -350,8 +332,8 @@ temp
 $if not exist "%InputPath%%VSPDInputData%.gdx" $ goto NextInput
 $GDXIN "%InputPath%%VSPDInputData%.gdx"
 *$GDXIN "%VSPDInputData%"
-*$LOAD i_TradePeriod
-$LOAD i_DateTime i_Offer i_Trader i_Bid i_Node i_Bus i_Branch i_BranchConstraint i_ACNodeConstraint i_MNodeConstraint i_GenericConstraint
+
+$LOAD i_TradePeriod i_DateTime i_Offer i_Trader i_Bid i_Node i_Bus i_Branch i_BranchConstraint i_ACNodeConstraint i_MNodeConstraint i_GenericConstraint
 $LOAD i_ACLineUnit i_TradingPeriodLength i_CVPValues i_BranchReceivingEndLossProportion
 $LOAD i_DateTimeTradePeriodMap i_TradePeriodOfferNode i_TradePeriodOfferTrader i_TradePeriodBidNode i_TradePeriodBidTrader i_TradePeriodNode
 $LOAD i_TradePeriodBusIsland i_TradePeriodBus i_TradePeriodNodeBus i_TradePeriodBranchDefn i_TradePeriodRiskGenerator
@@ -372,7 +354,6 @@ $LOAD i_TradePeriodGenericILReserveBidConstraintFactors i_TradePeriodGenericBran
 *Load day, month and year
 $LOAD i_Day i_Month i_Year
 *Close the gdx
-$LOAD i_NodeDeficit_var
 $GDXIN
 
 *===================================================================================
@@ -476,7 +457,7 @@ UseMixedConstraint(i_TradePeriod) $ (i_UseMixedConstraint and (sum(i_Type1MixedC
 
 *RDN - Do not use the extended risk class if no data coming through
 i_UseExtendedRiskClass $ (sum((i_TradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter) $ (ord(i_RiskClass) > 4), i_TradePeriodRiskParameter(i_TradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter))=0) = 0;
-display  "extendeds", i_UseExtendedRiskClass;
+
 *RDN - Change to demand bid
 UseDSBFDemandBidModel = 1 $(InputGDXGDate >= DemandBidChangeGDXGDate);
 *RDN - Change to demand bid - End
@@ -588,7 +569,6 @@ DiffCeECeCVP $ ((InputGDXGDate >= CVPChangeGDate) and (%VarResv% = -1)) = 1;
 *If the user selects Yes (1), set the DiffCeECeCVP flag
 DiffCeECeCVP $ (%VarResv% = 1) = 1;
 
-
 DeficitBusGenerationPenalty                                              = sum(i_CVP $ (ord(i_CVP) = 1), i_CVPValues(i_CVP));
 SurplusBusGenerationPenalty                                              = sum(i_CVP $ (ord(i_CVP) = 2), i_CVPValues(i_CVP));
 DeficitReservePenalty(i_ReserveClass) $ (ord(i_ReserveClass) = 1)        = sum(i_CVP $ (ord(i_CVP) = 3), i_CVPValues(i_CVP));
@@ -613,32 +593,6 @@ DeficitReservePenalty_CE(i_ReserveClass) $ (ord(i_ReserveClass) = 2)     = sum(i
 DeficitReservePenalty_ECE(i_ReserveClass) $ (ord(i_ReserveClass) = 1)    = sum(i_CVP $ (ord(i_CVP) = 19), i_CVPValues(i_CVP));
 DeficitReservePenalty_ECE(i_ReserveClass) $ (ord(i_ReserveClass) = 2)    = sum(i_CVP $ (ord(i_CVP) = 20), i_CVPValues(i_CVP));
 
-*TPM ================================================================================================================================================
-Parameters
-o_NodeGenIRCost_TP(i_DateTime,i_Node)                                            'Generator Cost of providing reserve ($)'
-o_NodeGenCost_TP(i_DateTime,i_Node)                                              'Generator supply cost - ($)'
-o_NodeLoadCost_TP(i_DateTime,i_Node)                                             'Node Cost ($)'
-o_NodeBenefit_TP(i_DateTime,i_Node)                                              'Generator benefit ($) = Generator revenue - Generator supply cost'
-o_NodeDispatchedBid_TP(i_DateTime,i_Node)                                        'Total Amount of load not dispatched due to bid'
-
-o_OfferGenCost_TP(i_DateTime,i_Offer)                                            'Generator supply cost - ($)'
-o_OfferBenefit_TP(i_DateTime,i_Offer)                                            'Generator benefit ($) = Generator revenue - Generator supply cost'
-;
-
-*---------Hard-code switching off mixed constraints for transmission pricing----
-* DW - redundant because the period used for transmission, constraints etc is after the cutoff date.
-*i_UseMixedConstraint = 0;
-
-*---------Hard-code primary-secondary offer for transmission pricing------------
-* Don't know quite what this does yet, but I think it isn't needed? Investigate
-*i_TradePeriodPrimarySecondaryOffer(i_TradePeriod,'HWA1102 WAA0','HWA1102 WAA1') = yes;
-
-*---------Pricing of deficit at Voll--------------------------------------------
-Scalar Voll                     /3000/;
-DeficitBusGenerationPenalty                                              = Voll;
-SurplusBusGenerationPenalty                                              = Voll;
-
-*TPM ================================================================================================================================================
 
 *Initialise some reporting parameters
 o_NumTradePeriods = 0;
@@ -707,12 +661,6 @@ for (IterationCount = 1 to NumTradePeriods,
 *========================================================================================================
 *Model Variables
 *Reset bounds
-
-*Variable VoLL
-    option clear = TradePeriodBusDeficit_var;
-*End of Period Generation carry overs
-    option clear = o_EoPgen;
-    option clear = i_EoPgen;
 *Offers
     option clear = GENERATION;
     option clear = GENERATIONBLOCK;
@@ -995,10 +943,6 @@ for (IterationCount = 1 to NumTradePeriods,
 *Initialise current trade period and model data for the current trade period
 *========================================================================================
 
-if (%VSPDRunNum% + IterationCount > 2.00,
-        execute_load "%OutputPath%%runName%\EoP_gen.gdx" i_EoPgen = o_EoPgen;
-         display "loaded previous period";
-    )  ;
 *Set the CurrentTradePeriod
 *For sequential solve
     CurrentTradePeriod(i_TradePeriod) $ (i_SequentialSolve and (ord(i_TradePeriod) eq IterationCount)) = yes $ i_StudyTradePeriod(i_TradePeriod);
@@ -1026,23 +970,8 @@ if (%VSPDRunNum% + IterationCount > 2.00,
 
     Node(CurrentTradePeriod,i_Node) $ i_TradePeriodNode(CurrentTradePeriod,i_Node) = yes;
     OfferNode(CurrentTradePeriod,i_Offer,i_Node) $ i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node) = yes;
-    if((%VSPDRunNum% + IterationCount = 2.00),
-         GenerationStart(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 1), i_TradePeriodOfferParameter(Offer,i_OfferParam));
-    else
-         loop(i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node),
-                  GenerationStart(CurrentTradePeriod,i_Offer) = i_EoPgen(i_Node) ;
-         );
-*         GenerationStart(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 1), i_TradePeriodOfferParameter(Offer,i_OfferParam));
-display "Generation Carry Over",i_EoPgen, GenerationStart;
-    );
-    TradePeriodBusDeficit_var(CurrentTradePeriod,i_Bus) = VoLL;
-    if((smax(i_Node,i_NodeDeficit_var(i_Node))>0),
-         loop(i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus),
-                 TradePeriodBusDeficit_var(CurrentTradePeriod,i_Bus) = i_NodeDeficit_var(i_Node) ;
-         );
-    );
-display "VoLL per Bus",TradePeriodBusDeficit_var;
 
+    GenerationStart(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 1), i_TradePeriodOfferParameter(Offer,i_OfferParam));
     RampRateUp(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 2), i_TradePeriodOfferParameter(Offer,i_OfferParam));
     RampRateDown(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 3), i_TradePeriodOfferParameter(Offer,i_OfferParam));
 
@@ -2223,10 +2152,6 @@ $OFFTEXT
 *    if (%TradePeriodReports% = 1,
     if ((%TradePeriodReports% = 1) or (%DWMode% = -1),
      loop(i_DateTimeTradePeriodMap(i_DateTime,CurrentTradePeriod),
-
-       o_EoPgen(i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Offer $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node)), GENERATION.l(CurrentTradePeriod,i_Offer));
-       o_EoPgen_dontwipe(CurrentTradePeriod,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Offer $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node)), GENERATION.l(CurrentTradePeriod,i_Offer));
-
        o_DateTime(i_DateTime) = yes;
        o_Bus(i_DateTime,i_Bus) $ (Bus(CurrentTradePeriod,i_Bus) and (not DCBus(CurrentTradePeriod,i_Bus))) = yes;
        o_BusGeneration_TP(i_DateTime,i_Bus) $ Bus(CurrentTradePeriod,i_Bus) = BusGeneration(CurrentTradePeriod,i_Bus);
@@ -2238,21 +2163,9 @@ $OFFTEXT
        o_BusSurplus_TP(i_DateTime,i_Bus) $ Bus(CurrentTradePeriod,i_Bus) = SURPLUSBUSGENERATION.l(CurrentTradePeriod,i_Bus);
        o_Node(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (not HVDCNode(CurrentTradePeriod,i_Node))) = yes;
        o_NodeGeneration_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Offer $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node)), GENERATION.l(CurrentTradePeriod,i_Offer));
-*DW
-       o_NodeIR_TP(i_DateTime,i_Node,i_ReserveClass) $ Node(CurrentTradePeriod,i_Node) = sum((i_Offer,i_ReserveType) $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node)), RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType));
-
        o_NodeLoad_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = NodeDemand(CurrentTradePeriod,i_Node);
        o_NodePrice_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * BusPrice(CurrentTradePeriod,i_Bus));
-*DW
-       o_IRPrice_TP(i_DateTime,i_Island,i_ReserveClass) = SupplyDemandReserveRequirement.m(CurrentTradePeriod,i_Island,i_ReserveClass);
-
-*Note that this has changed to include IR revenue too*
        o_NodeRevenue_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = (i_TradingPeriodLength/60)*(o_NodeGeneration_TP(i_DateTime,i_Node) * o_NodePrice_TP(i_DateTime,i_Node));
-       o_NodeRevenueIR_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = (i_TradingPeriodLength/60)*
-         [sum(i_ReserveClass,
-                 [o_NodeIR_TP(i_DateTime,i_Node,i_ReserveClass) *
-                 sum((i_Bus,i_Island) $ (i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus) and i_TradePeriodBusIsland(CurrentTradePeriod,i_Bus,i_Island)),
-                         o_IRPrice_TP(i_DateTime,i_Island,i_ReserveClass))])];
        o_NodeCost_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = (i_TradingPeriodLength/60)*(o_NodeLoad_TP(i_DateTime,i_Node) * o_NodePrice_TP(i_DateTime,i_Node));
 
 *RDN - Update the deficit and surplus reporting at the nodal level - Start------
@@ -2263,56 +2176,6 @@ $OFFTEXT
        o_NodeDeficit_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) * DEFICITBUSGENERATION.l(CurrentTradePeriod,i_Bus));
        o_NodeSurplus_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) * SURPLUSBUSGENERATION.l(CurrentTradePeriod,i_Bus));
 *RDN - Update the deficit and surplus reporting at the nodal level - End------
-
-*TPM - Calculate benefit by node depending on generator, load or negative load node ========================================================================================================================================================================================================================================================================================================================================================
-       o_NodeGenIRCost_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node)) = (i_TradingPeriodLength/60)*sum((i_Offer,i_TradeBlock,i_ReserveClass,i_ReserveType) $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node) and ValidReserveOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock,i_ReserveClass,i_ReserveType)), RESERVEBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock,i_ReserveClass,i_ReserveType) * ReserveOfferPrice(CurrentTradePeriod,i_Offer,i_TradeBlock,i_ReserveClass,i_ReserveType));
-       o_NodeGenCost_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) > 0)) = (i_TradingPeriodLength/60)*sum((i_Offer,i_TradeBlock) $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node) and ValidGenerationOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock)), GENERATIONBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock) * GenerationOfferPrice(CurrentTradePeriod,i_Offer,i_TradeBlock));
-
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) > 0)) = o_NodeRevenue_TP(i_DateTime,i_Node) - o_NodeGenCost_TP(i_DateTime,i_Node);
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) = 0)) = 0;
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) > 0)) = (i_TradingPeriodLength/60)*((Voll-o_NodePrice_TP(i_DateTime,i_Node))*max(0,(o_NodeLoad_TP(i_DateTime,i_Node) - o_NodeDeficit_TP(i_DateTime,i_Node))));
-*Then modify these by adding on IR costs/benefits
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and sum(i_ReserveClass,o_NodeIR_TP(i_DateTime,i_Node,i_ReserveClass))>0) = o_NodeBenefit_TP(i_DateTime,i_Node) - o_NodeGenIRCost_TP(i_DateTime,i_Node) + o_NodeRevenueIR_TP(i_DateTime,i_Node);
-display "aaaa",  o_NodeGenIRCost_TP, o_NodeGenCost_TP, o_NodeRevenue_TP, o_NodeRevenueIR_TP, o_NodeBenefit_TP;
-*Not Particularly happy with the way this code turns out as it's very piecemeal. Should be able to just do 'node revenue due to GEN, node revenue due to IR, node revenue due to load minus costs for those classes'
-$ontext
-
-*This line is to change the node benefit when energy is bidded. It isn't actually correct - as there are constant terms that are not included here.
-*However, the difference in benefits will be correct when comparing 2 steps, as the constants are... constant for both situations
-
-Original nodebenefit calculation:
-
-o_NodeLoad_TP*(VoLL-o_NodePrice_TP)
-
-Reduction in benefit due to reduced load:
-
-+(PURCHASEBLOCK.l*(VoLL- o_NodePrice_TP)
-
-Reduction in benefit due to lower 'VoLL' from bidprice:
-
-+(PurchaseBidMW-PURCHASEBLOCK.l)*(VoLL-PurchaseBidPrice)
-
-
-(PURCHASEBLOCK.l*(VoLL- o_NodePrice_TP) +(PurchaseBidMW-PURCHASEBLOCK.l)*(VoLL-PurchaseBidPrice).
-
-factorize out =>
-
--PURCHASEBLOCK.l * o_NodePrice_TP +PurchaseBidMW * VoLL +PURCHASEBLOCK.l * PurchaseBidPrice - PurchaseBidMW * PurchaseBidPrice
-
-Get rid of constants =>
-
--PURCHASEBLOCK.l * o_NodePrice_TP + PURCHASEBLOCK.l * PurchaseBidPrice
-
-$offtext
-
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) > 0)) =
-         o_NodeBenefit_TP(i_DateTime,i_Node) + (i_TradingPeriodLength/60)*sum((i_Bid,i_TradeBlock) $ (BidNode(CurrentTradePeriod,i_Bid,i_Node) and ValidPurchaseBidBlock(CurrentTradePeriod,i_Bid,i_TradeBlock)), PURCHASEBLOCK.l(CurrentTradePeriod,i_Bid,i_TradeBlock)* (PurchaseBidPrice(CurrentTradePeriod,i_Bid,i_TradeBlock)-o_NodePrice_TP(i_DateTime,i_Node)));
-
-       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) < 0)) = (i_TradingPeriodLength/60)*o_NodePrice_TP(i_DateTime,i_Node)*abs(o_NodeLoad_TP(i_DateTime,i_Node));
-
-       o_NodeDispatchedBid_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) > 0)) =
-         sum((i_Bid,i_TradeBlock) $ (BidNode(CurrentTradePeriod,i_Bid,i_Node) and ValidPurchaseBidBlock(CurrentTradePeriod,i_Bid,i_TradeBlock)),PURCHASEBLOCK.l(CurrentTradePeriod,i_Bid,i_TradeBlock));
-*TPM - End calculate benefit by node depending on generator, load or negative load node ====================================================================================================================================================================================================================================================================================================================================================
 
        o_Branch(i_DateTime,i_Branch) $ Branch(CurrentTradePeriod,i_Branch) = yes;
        o_BranchFlow_TP(i_DateTime,i_Branch) $ ACBranch(CurrentTradePeriod,i_Branch) = ACBRANCHFLOW.l(CurrentTradePeriod,i_Branch);
@@ -2345,18 +2208,6 @@ $offtext
        o_BidEnergy_TP(i_DateTime,i_Bid) $ Bid(CurrentTradePeriod,i_Bid) = PURCHASE.l(CurrentTradePeriod,i_Bid);
        o_BidReserve_TP(i_DateTime,i_Bid,i_ReserveClass) $ Bid(CurrentTradePeriod,i_Bid) = PURCHASEILR.l(CurrentTradePeriod,i_Bid,i_ReserveClass);
        o_Island(i_DateTime,i_Island) = yes;
-
-*TPM - Calculate benefit by generation offer ========================================================================================================================================================================================================================================================================================================================================================
-       o_OfferGenCost_TP(i_DateTime,i_Offer) $ [ Offer(CurrentTradePeriod,i_Offer) and (o_OfferEnergy_TP(i_DateTime,i_Offer) > 0) ]
-           = (i_TradingPeriodLength/60) * sum[i_TradeBlock $ ValidGenerationOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock),
-                                               GENERATIONBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock) * GenerationOfferPrice(CurrentTradePeriod,i_Offer,i_TradeBlock)];
-
-       o_OfferBenefit_TP(i_DateTime,i_Offer) $ [ Offer(CurrentTradePeriod,i_Offer) and (o_OfferEnergy_TP(i_DateTime,i_Offer) > 0) ]
-           = (i_TradingPeriodLength/60) * o_OfferEnergy_TP(i_DateTime,i_Offer) * sum[i_Node $ OfferNode(CurrentTradePeriod,i_Offer,i_Node), o_NodePrice_TP(i_DateTime,i_Node)]
-           -  o_OfferGenCost_TP(i_DateTime,i_Offer);
-
-*TPM - End calculate benefit by node depending on generator, load or negative load node ====================================================================================================================================================================================================================================================================================================================================================
-
 *RDN - Update FIR and SIR required based on the CE and ECE
 *RDN - FIR and SIR required based on calculations of the island risk to overcome reporting issues of the risk setter under degenerate conditions when reserve price = 0 - See below
 *       o_FIRReqd_TP(i_DateTime,i_Island) $ (not DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass));
@@ -2698,13 +2549,7 @@ $offtext
    o_OfferFIRRevenue(i_Offer) = 0;
    o_OfferSIRRevenue(i_Offer) = 0;
  );
-*Changed this to put conditionals around it so it doesn't error on the first period. Not checked yet*
-if (%VSPDRunNum% + IterationCount > 2.00,
-       execute 'del %OutputPath%%runName%\EoP_gen.gdx';
-)  ;
 
-execute_unload '%OutputPath%%runName%\EoP_gen.gdx', o_EoPgen;
-execute_unload '%OutputPath%%runName%\Everything.gdx';
 *End of main for statement
 );
 
@@ -2755,11 +2600,9 @@ if (%TradePeriodReports% = 1,
                                                                       o_BranchFixedLoss_TP, o_BranchFromBusPrice_TP, o_BranchToBusPrice_TP
                                                                       o_BranchMarginalPrice_TP, o_BranchTotalRentals_TP, o_BranchCapacity_TP;
 
-*TPM---
-   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_NodeOutput_TP.gdx', o_Node, o_NodeGeneration_TP, o_NodeLoad_TP, o_NodePrice_TP, o_NodeRevenue_TP, o_NodeCost_TP, o_NodeDeficit_TP, o_NodeSurplus_TP, o_NodeBenefit_TP, o_NodeDispatchedBid_TP;
+   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_NodeOutput_TP.gdx', o_Node, o_NodeGeneration_TP, o_NodeLoad_TP, o_NodePrice_TP, o_NodeRevenue_TP, o_NodeCost_TP, o_NodeDeficit_TP, o_NodeSurplus_TP;
 
-   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_OfferOutput_TP.gdx', o_Offer, o_OfferEnergy_TP, o_OfferFIR_TP, o_OfferSIR_TP, o_OfferBenefit_TP;
-*TPM---
+   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_OfferOutput_TP.gdx', o_Offer, o_OfferEnergy_TP, o_OfferFIR_TP, o_OfferSIR_TP;
 
    execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_ReserveOutput_TP.gdx', o_Island, o_FIRReqd_TP, o_SIRReqd_TP, o_FIRPrice_TP, o_SIRPrice_TP, o_FIRViolation_TP, o_SIRViolation_TP;
 
@@ -2779,8 +2622,6 @@ if (%TradePeriodReports% = 1,
 *TN - Additional output for audit reporting - End
 
 );
-
-execute_unload '%OutputPath%%runName%\EoP_gen_all.gdx', o_EoPgen_dontwipe;
 
 *Post a progress message to report for use by GUI.
 putclose runlog / 'The case: %VSPDInputData% is complete. (', system.time, ').' //// ;

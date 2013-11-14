@@ -230,10 +230,7 @@ i_TradePeriodGenericReserveOfferConstraintFactors(i_TradePeriod,i_GenericConstra
 i_TradePeriodGenericEnergyBidConstraintFactors(i_TradePeriod,i_GenericConstraint,i_Bid)                                          'Generic constraint energy bid constraint factors for the different trading periods'
 i_TradePeriodGenericILReserveBidConstraintFactors(i_TradePeriod,i_GenericConstraint,i_Bid,i_ReserveClass)                        'Generic constraint IL reserve bid constraint factors for the different trading periods'
 i_TradePeriodGenericBranchConstraintFactors(i_TradePeriod,i_GenericConstraint,i_Branch)                                          'Generic constraint energy offer constraint factors for the different trading periods'
-i_TradePeriodGenericConstraintRHS(i_TradePeriod,i_GenericConstraint,i_ConstraintRHS)                                            'Generic constraint sense and limit for the different trading periods'
-
-*Deficit Node
-i_NodeDeficit_var(i_Node)                                                                                                  'The new VoLL for each bus'
+i_TradePeriodGenericConstraintRHS(i_TradePeriod,i_GenericConstraint,i_ConstraintRHS)                                             'Generic constraint sense and limit for the different trading periods'
 ;
 
 *===================================================================================
@@ -329,7 +326,6 @@ GenericConstraint(i_TradePeriod,i_GenericConstraint)                     'Generi
 ;
 
 PARAMETERS
-TradePeriodBusDeficit_var(i_Tradeperiod,i_Bus)   'The variable price for VoLL at each BUS'
 *Offers
 RampRateUp(i_TradePeriod,i_Offer)                'The ramping up rate in MW per minute associated with the generation offer (MW/min)'
 RampRateDown(i_TradePeriod,i_Offer)              'The ramping down rate in MW per minute associated with the generation offer (MW/min)'
@@ -715,9 +711,7 @@ sum(ValidPurchaseBidBlock, PURCHASEBLOCK(ValidPurchaseBidBlock) * PurchaseBidPri
 *RDN - Bug fix - Used SurplusBranchGroupConstraintPenalty rather than SurplusBranchFlowPenalty
 TotalViolationCostDefinition..
 TOTALPENALTYCOST =e=
-*sum(Bus, DeficitBusGenerationPenalty * DEFICITBUSGENERATION(Bus))
-sum(Bus, TradePeriodBusDeficit_var(Bus) * DEFICITBUSGENERATION(Bus))
-*(Bus) is (CurrentTradePeriod,i_Bus)
+sum(Bus, DeficitBusGenerationPenalty * DEFICITBUSGENERATION(Bus))
 + sum(Bus, SurplusBusGenerationPenalty * SURPLUSBUSGENERATION(Bus))
 + sum(Branch, SurplusBranchFlowPenalty * SURPLUSBRANCHFLOW(Branch))
 + sum(Offer, (DeficitRampRatePenalty * DEFICITRAMPRATE(Offer)) + (SurplusRampRatePenalty * SURPLUSRAMPRATE(Offer)))
