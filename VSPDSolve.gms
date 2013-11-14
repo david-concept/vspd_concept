@@ -3,7 +3,7 @@ $ontext
 Name: VSPDModel.gms
 Function: Base and override data read, data prepare and model solve.
 Developed by: Ramu Naidoo  (Electricity Authority, New Zealand)
-Last modified: 11 Mar 2013
+Last modified: 29 November 2011
 ===================================================================================
 $offtext
 
@@ -38,9 +38,6 @@ option solprint = off;
 option limcol = 0;
 option limrow = 0;
 
-*Allow empty data set declaration
-$onempty
-
 *===================================================================================
 *Data load and initialisation
 *===================================================================================
@@ -54,20 +51,13 @@ SETS
 i_Island /NI, SI/
 i_ReserveClass /FIR, SIR/
 i_ReserveType /PLSR, TWDR, ILR/
-
-*RDN - Include additional ECE risk classes
-*i_RiskClass /GENRISK, DCCE, DCECE, Manual/
-i_RiskClass /GENRISK, DCCE, DCECE, Manual, GENRISK_ECE, Manual_ECE, HVDCSECRISK_CE, HVDCSECRISK_ECE/
-
+i_RiskClass /GENRISK, DCCE, DCECE, Manual/
 i_ConstraintRHS /i_ConstraintSense, i_ConstraintLimit/
 
 i_OfferType /ENERGY, PLSR, TWDR, ILR/
 i_TradeBlock /t1*t20/
 i_EnergyOfferComponent /i_GenerationMWOffer, i_GenerationMWOfferPrice/
-*RDN - Include FKBandMW as part of the offer parameter inputs
-*i_OfferParam /i_InitialMW, i_RampUpRate, i_RampDnRate, i_ReserveGenerationMaximum, i_WindOffer/
-i_OfferParam /i_InitialMW, i_RampUpRate, i_RampDnRate, i_ReserveGenerationMaximum, i_WindOffer, i_FKBandMW/
-
+i_OfferParam /i_InitialMW, i_RampUpRate, i_RampDnRate, i_ReserveGenerationMaximum, i_WindOffer/
 
 i_EnergyBidComponent /i_BidMW, i_BidPrice/
 
@@ -75,9 +65,6 @@ i_FlowDirection /Forward, Backward/
 i_LossParameter /i_MWBreakPoint, i_LossCoefficient/
 i_LossSegment /ls1*ls10/
 i_BranchParameter /i_BranchResistance, i_BranchSusceptance, i_BranchFixedLosses, i_NumLossTranches/
-
-*RDN - HVDC poles
-i_Pole /Pole1, Pole2/
 
 i_RiskParameter /i_FreeReserve, i_RiskAdjustmentFactor, i_HVDCPoleRampUp/
 
@@ -87,9 +74,8 @@ i_ILROfferComponent /i_ILROfferMax, i_ILROfferPrice/
 i_PLSROfferComponent /i_PLSROfferPercentage, i_PLSROfferMax, i_PLSROfferPrice/
 i_TWDROfferComponent /i_TWDROfferMax, i_TWDROfferPrice/
 
-*RDN - Load the mixed constraint sets from the gdx
-*i_Type1MixedConstraint /m1*m24/
-*i_Type2MixedConstraint /b1*b6/
+i_Type1MixedConstraint /m1*m24/
+i_Type2MixedConstraint /b1*b6/
 i_Type1MixedConstraintRHS /i_MixedConstraintSense, i_MixedConstraintLimit1, i_MixedConstraintLimit2/
 
 i_CVP /i_DeficitBusGeneration, i_SurplusBusGeneration, i_Deficit6sReserve_CE, i_Deficit60sReserve_CE, i_DeficitBranchGroupConstraint, i_SurplusBranchGroupConstraint, i_DeficitGenericConstraint, i_SurplusGenericConstraint, i_DeficitRampRate, i_SurplusRampRate, i_DeficitACNodeConstraint, i_SurplusACNodeConstraint, i_DeficitBranchFlow, i_SurplusBranchFlow, i_DeficitMnodeConstraint, i_SurplusMnodeConstraint, i_Type1DeficitMixedConstraint, i_Type1SurplusMixedConstraint, i_Deficit6sReserve_ECE, i_Deficit60sReserve_ECE/
@@ -110,14 +96,6 @@ o_BranchFromBus_TP(i_DateTime,i_Branch,i_FromBus)                               
 o_BranchToBus_TP(i_DateTime,i_Branch,i_ToBus)                                    'To bus for set of branches for output report'
 o_BrConstraint_TP(i_DateTime,i_BranchConstraint)                                 'Set of branch constraints for output report'
 o_MNodeConstraint_TP(i_DateTime,i_MNodeConstraint)                               'Set of mnode constraints for output report'
-
-*TN - Audit report
-o_BusIsland_TP(i_DateTime,i_Bus,i_Island)                                        'Bus Island Mapping for audit report'
-o_MarketNodeIsland_TP(i_DateTime,i_Offer,i_Island)                               'Generation Offer Island Mapping for audit reporting'
-*TN - Audit report - End
-*RDN - Additional output for audit report - Start-------------------------------
-o_OfferIsland_TP(i_DateTime,i_Offer,i_Island)                                       'Mapping of offers to island for audit reporting'
-*RDN - Additional output for audit report - End-------------------------------
 ;
 
 PARAMETERS
@@ -126,9 +104,6 @@ IterationCount                                                                  
 *MIP logic
 BranchFlowMIPInvoked(i_TradePeriod)                                              'Flag to detect if branch flow MIP is needed'
 CircularBranchFlowExist(i_TradePeriod,i_Branch)                                  'Flag to indicate if circulating branch flows exist on each branch: 1 = Yes'
-*RDN - Introduce flag to detect circular branch flows on each HVDC pole
-PoleCircularBranchFlowExist(i_TradePeriod,i_Pole)                                'Flag to indicate if circulating branch flows exist on each an HVDC pole: 1 = Yes'
-
 NorthHVDC(i_TradePeriod)                                                         'HVDC MW sent from from SI to NI'
 SouthHVDC(i_TradePeriod)                                                         'HVDC MW sent from from NI to SI'
 NonPhysicalLossExist(i_TradePeriod,i_Branch)                                     'Flag to indicate if non-physical losses exist on branch: 1 = Yes'
@@ -136,11 +111,6 @@ ManualBranchSegmentMWFlow(i_TradePeriod,i_Branch,i_LossSegment)                 
 ManualLossCalculation(i_TradePeriod,i_Branch)                                    'MW losses calculated manually from the solution for each loss branch'
 HVDCHalfPoleSouthFlow(i_TradePeriod)                                             'Flag to indicate if south flow on HVDC halfpoles'
 Type1MixedConstraintLimit2Violation(i_TradePeriod, i_Type1MixedConstraint)       'Type 1 mixed constraint MW violaton of the alternate limit value'
-
-*RDN - Parameters to calculate circular branch flow on each HVDC pole
-TotalHVDCPoleFlow(i_TradePeriod,i_Pole)                                          'Total flow on an HVDC pole'
-MaxHVDCPoleFlow(i_TradePeriod,i_Pole)                                            'Maximum flow on an HVDC pole'
-
 *Disconnected bus post-processing
 BusGeneration(i_TradePeriod,i_Bus)                                               'MW generation at each bus for the study trade periods'
 BusLoad(i_TradePeriod,i_Bus)                                                     'MW load at each bus for the study trade periods'
@@ -260,52 +230,6 @@ o_TraderSIR(i_Trader)                                                           
 o_TraderGenRevenue(i_Trader)                                                     'Output trader energy revenue ($)'
 o_TraderFIRRevenue(i_Trader)                                                     'Output trader FIR revenue ($)'
 o_TraderSIRRevenue(i_Trader)                                                     'Output trader SIR revenue ($)'
-
-*TN - Additional output for audit reporting
-o_LossSegmentBreakPoint(i_DateTime,i_Branch,i_LossSegment)                       'MW capacity of each loss segment for audit'
-o_LossSegmentFactor(i_DateTime,i_Branch,i_LossSegment)                           'Loss factor of each loss segment for audit'
-
-o_ACBusAngle(i_DateTime,i_Bus)                                                   'Bus voltage angle for audit reporting'
-o_NonPhysicalLoss(i_DateTime,i_Branch)                                           'MW losses calculated manually from the solution for each loss branch'
-o_BranchConstrained_TP(i_DateTime,i_Branch)                                      'Output flag if branch constrained'
-
-o_ILRO_FIR_TP(i_DateTime,i_Offer)                                                              'Output IL offer FIR (MWh)'
-o_ILRO_SIR_TP(i_DateTime,i_Offer)                                                              'Output IL offer SIR (MWh)'
-o_ILBus_FIR_TP(i_DateTime,i_Bus)                                                               'Output IL offer FIR (MWh)'
-o_ILBus_SIR_TP(i_DateTime,i_Bus)                                                               'Output IL offer SIR (MWh)'
-o_PLRO_FIR_TP(i_DateTime,i_Offer)                                                              'Output PLSR offer FIR (MWh)'
-o_PLRO_SIR_TP(i_DateTime,i_Offer)                                                              'Output PLSR SIR (MWh)'
-o_TWRO_FIR_TP(i_DateTime,i_Offer)                                                              'Output TWR FIR (MWh)'
-o_TWRO_SIR_TP(i_DateTime,i_Offer)                                                              'Output TWR SIR (MWh)'
-
-o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,i_RiskClass)                    'For Audit'
-o_GenerationRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)                             'For Audit'
-o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,i_RiskClass)                       'For Audit'
-o_HVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass)                                  'For Audit'
-o_MANURiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass)                                  'For Audit'
-o_MANUHVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass)                              'For Audit'
-*TN - Additional output for audit reporting - End
-
-*RDN - Additional output for Audit risk report - Start--------------------------
-o_HVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass)                                           'For Audit'
-o_GenHVDCRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)                                'For Audit'
-o_MANUHVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass)                                       'For Audit'
-o_MANURiskSetterMax(i_DateTime,i_Island,i_ReserveClass)                                           'For Audit'
-o_FIRCleared_TP(i_DateTime,i_Island)                                                              'For Audit'
-o_SIRCleared_TP(i_DateTime,i_Island)                                                              'For Audit'
-*RDN - Additional output for Audit risk report - Start--------------------------
-
-
-*RDN - Update the deficit and surplus reporting at the nodal level - Start------
-TotalBusAllocation(i_DateTime,i_Bus)                                                             'Total allocation of nodes to bus'
-BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node)                                                 'Bus to node allocation factor'
-*RDN - Update the deficit and surplus reporting at the nodal level - End--------
-
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - Start-----------
-*Introduce i_UseBusNetworkModel to account for MSP change-over date when for half of the day the old
-*market node model and the other half the bus network model was used.
-i_UseBusNetworkModel(i_TradePeriod)                                                              'Indicates if the post-MSP bus network model is used in vSPD (1 = Yes)'
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - End-----------
 ;
 
 SCALARS
@@ -315,14 +239,8 @@ SkipResolve                      'Flag to indicate if the integer resolve logic 
 LPValid                          'Flag to indicate if the LP solution is valid (1 = Yes)'                                                /0/
 NumTradePeriods                  'Number of trade periods in the solve'                                                                  /0/
 ThresholdSimultaneousInteger     'Threshold number of trade periods for which to skip the integer resolve in simultanous mode and repeat in sequential mode' /1/
-*RDN - Flag to use the extended set of risk classes which include the GENRISK_ECE and Manual_ECE
-i_UseExtendedRiskClass           'Use the extended set of risk classes (1 = Yes)'                                                        /0/
 ;
 
-*RDN - Temporary file name
-Files
-temp
-;
 
 * Start data load
 * Call the GDX routine and load the input data:
@@ -336,9 +254,8 @@ $GDXIN "%InputPath%%VSPDInputData%.gdx"
 $LOAD i_TradePeriod i_DateTime i_Offer i_Trader i_Bid i_Node i_Bus i_Branch i_BranchConstraint i_ACNodeConstraint i_MNodeConstraint i_GenericConstraint
 $LOAD i_ACLineUnit i_TradingPeriodLength i_CVPValues i_BranchReceivingEndLossProportion
 $LOAD i_DateTimeTradePeriodMap i_TradePeriodOfferNode i_TradePeriodOfferTrader i_TradePeriodBidNode i_TradePeriodBidTrader i_TradePeriodNode
+*$LOAD i_TradePeriodPrimarySecondaryOffer
 $LOAD i_TradePeriodBusIsland i_TradePeriodBus i_TradePeriodNodeBus i_TradePeriodBranchDefn i_TradePeriodRiskGenerator
-*RDN - Load mixed constraint sets from gdx
-$LOAD i_Type1MixedConstraint i_Type2MixedConstraint
 $LOAD i_Type1MixedConstraintReserveMap i_TradePeriodType1MixedConstraint i_TradePeriodType2MixedConstraint i_Type1MixedConstraintBranchCondition i_TradePeriodGenericConstraint
 $LOAD i_StudyTradePeriod i_TradePeriodOfferParameter i_TradePeriodEnergyOffer i_TradePeriodSustainedPLSROffer i_TradePeriodFastPLSROffer i_TradePeriodSustainedTWDROffer i_TradePeriodFastTWDROffer
 $LOAD i_TradePeriodSustainedILROffer i_TradePeriodFastILROffer i_TradePeriodNodeDemand i_TradePeriodHVDCNode i_TradePeriodReferenceNode i_TradePeriodHVDCBranch
@@ -356,126 +273,9 @@ $LOAD i_Day i_Month i_Year
 *Close the gdx
 $GDXIN
 
-*===================================================================================
-*Model compatilibility
-*===================================================================================
-*This section manages to changes to model flags to ensure backward compatibility of vSPD
-*given changes in the SPD model formulation
-*RDN - Conditional load of some GDX data depending on when they were included into the GDX files
-*Data loaded at execution time whereas the previous load is at compile time
-Parameters
-InputGDXGDate                    'Gregorian date of input GDX file'
-;
-
-*Gregorian date of when parameters have been included into the GDX files and therefore conditionally loaded
-*17 Oct 2011 = 40832
-*01 May 2012 = 41029
-*28 Jun 2012 = 41087
-*20 Sep 2012 = 41171
-*12 Jan 2013 = 41285
-*24 Feb 2013 = 41328
-
-Scalars
-MixedConstraintRiskOffsetGDXGDate        /40832/
-PrimarySecondaryGDXGDate                 /41029/
-*RDN - Change to demand bid
-DemandBidChangeGDXGDate                  /41087/
-*RDN - Change to demand bid - End
-HVDCRoundPowerGDXGDate                   /41171/
-MinimumRiskECEGDXGDate                   /41171/
-HVDCSecRiskGDXGDate                      /41171/
-AddnMixedConstraintVarGDXGDate           /41328/
-ReserveClassGenMaxGDXGDate               /41328/
-PrimSecGenRiskModelGDXGDate              /41328/
-*RDN - 20130302 - Introduce MSP change-over date to account for change in the node-bus allocation
-*factor from the input gdx files
-MSPChangeOverGDXGDate                    /40014/
-;
-
-*Calculate the Gregorian date of the input data
-InputGDXGDate = jdate(i_Year,i_Month,i_Day);
-
-put_utility temp 'gdxin' / '%InputPath%%VSPDInputData%.gdx';
-
-*Conditional load of i_TradePeriodPriamrySecondary set
-if (InputGDXGDate >= PrimarySecondaryGDXGDate,
-    execute_load i_TradePeriodPrimarySecondaryOffer;
-else
-    i_TradePeriodPrimarySecondaryOffer(i_TradePeriod,i_Offer,i_Offer1) = no;
-);
-
-*Conditional load of i_TradePeriodManualRisk_ECE parameter
-if (InputGDXGDate >= MinimumRiskECEGDXGDate,
-*RDN - Set the use extended risk class flag
-    i_UseExtendedRiskClass = 1;
-    execute_load i_TradePeriodManualRisk_ECE;
-else
-    i_TradePeriodManualRisk_ECE(i_TradePeriod,i_Island,i_ReserveClass) = 0;
-);
-
-*Conditional load of HVDC secondary risk parameters
-if (InputGDXGDate >= HVDCSecRiskGDXGDate,
-    execute_load i_TradePeriodHVDCSecRiskEnabled, i_TradePeriodHVDCSecRiskSubtractor;
-else
-    i_TradePeriodHVDCSecRiskEnabled(i_TradePeriod,i_Island,i_RiskClass) = 0;
-    i_TradePeriodHVDCSecRiskSubtractor(i_TradePeriod,i_Island) = 0;
-);
-
-*Conditional load of i_TradePeriodAllowHVDCRoundpower parameter
-if (InputGDXGDate >= HVDCRoundPowerGDXGDate,
-    execute_load i_TradePeriodAllowHVDCRoundpower;
-else
-    i_TradePeriodAllowHVDCRoundpower(i_TradePeriod) = 0;
-);
-
-*Conditional load of additional mixed constraint parameters
-if (InputGDXGDate >= AddnMixedConstraintVarGDXGDate,
-    execute_load i_Type1MixedConstraintACLineWeight, i_Type1MixedConstraintACLineLossWeight, i_Type1MixedConstraintACLineFixedLossWeight
-                 i_Type1MixedConstraintHVDCLineLossWeight, i_Type1MixedConstraintHVDCLineFixedLossWeight, i_Type1MixedConstraintPurWeight;
-else
-    i_Type1MixedConstraintACLineWeight(i_Type1MixedConstraint,i_Branch) = 0;
-    i_Type1MixedConstraintACLineLossWeight(i_Type1MixedConstraint,i_Branch) = 0;
-    i_Type1MixedConstraintACLineFixedLossWeight(i_Type1MixedConstraint,i_Branch) = 0;
-    i_Type1MixedConstraintHVDCLineLossWeight(i_Type1MixedConstraint,i_Branch) = 0;
-    i_Type1MixedConstraintHVDCLineFixedLossWeight(i_Type1MixedConstraint,i_Branch) = 0;
-    i_Type1MixedConstraintPurWeight(i_Type1MixedConstraint,i_Bid) = 0;
-);
-
-*Conditional load of reserve class generation parameter
-if (InputGDXGDate >= ReserveClassGenMaxGDXGDate,
-    execute_load i_TradePeriodReserveClassGenerationMaximum;
-else
-    i_TradePeriodReserveClassGenerationMaximum(i_TradePeriod,i_Offer,i_ReserveClass) = 0;
-);
-
-*RDN - Switch off the mixed constraint based risk offset calculation after 17 October 2011 (data stopped being populated in GDX file)
-i_UseMixedConstraintRiskOffset = 1 $(InputGDXGDate < MixedConstraintRiskOffsetGDXGDate);
 
 *RDN - Switch off mixed constraint formulation if no data coming through
-*i_UseMixedConstraint $ (sum(i_Type1MixedConstraint, i_Type1MixedConstraintVarWeight(i_Type1MixedConstraint))=0) = 0;
-UseMixedConstraint(i_TradePeriod) $ (i_UseMixedConstraint and (sum(i_Type1MixedConstraint $ i_TradePeriodType1MixedConstraint(i_TradePeriod,i_Type1MixedConstraint),1))) = 1;
-
-*RDN - Do not use the extended risk class if no data coming through
-i_UseExtendedRiskClass $ (sum((i_TradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter) $ (ord(i_RiskClass) > 4), i_TradePeriodRiskParameter(i_TradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter))=0) = 0;
-
-*RDN - Change to demand bid
-UseDSBFDemandBidModel = 1 $(InputGDXGDate >= DemandBidChangeGDXGDate);
-*RDN - Change to demand bid - End
-
-*RDN - Use the risk model that accounts for multiple offers per generating unit
-UsePrimSecGenRiskModel = 1 $(InputGDXGDate >= PrimSecGenRiskModelGDXGDate);
-
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - Start--------
-*Introduce i_UseBusNetworkModel to account for MSP change-over date when for half of the day the old
-*market node model and the other half the bus network model was used. The old market model does not
-*have the i_TradePeriodBusElectrical island paramter specified since it uses the market node network
-*model. This flag is introduced to allow the i_TradePeriodBusElectricalIsland parameter to be used
-*in the post-MSP solves to indentify 'dead' electrical buses.
-i_UseBusNetworkModel(i_TradePeriod) = 1 $ ((InputGDXGDate >= MSPChangeOverGDXGDate)
-                                           and
-                                           sum(i_Bus, i_TradePeriodBusElectricalIsland(i_TradePeriod,i_Bus))
-                                          );
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - End----------
+i_UseMixedConstraint $ (sum(i_Type1MixedConstraint, i_Type1MixedConstraintVarWeight(i_Type1MixedConstraint))=0) = 0;
 
 *===================================================================================
 *Overrides - Define and apply
@@ -554,12 +354,16 @@ i_TradePeriodOfferParameter(i_TradePeriod,i_Offer,i_OfferParam) $ (i_OfferParamO
 *Allocation of constraint violation penalties from input data
 
 Parameters
+InputGDXGDate                    'Gregorian date of input GDX file'
 CVPChangeGDate                   'Gregorian date of CE and ECE CVP change'
 ;
 
 *Set the flag for the application of the different CVPs for CE and ECE
 *If the user selects No (0), this default value of the DiffCeECeCVP flag will be used.
 DiffCeECeCVP = 0;
+
+*Calculate the Gregorian date of the input data
+InputGDXGDate = jdate(i_Year,i_Month,i_Day);
 
 *Calculate the Gregorian date of the CE and ECE change - Based on CAN from www.systemoperator.co.nz this was on 24th June 2010
 CVPChangeGDate = jdate(2010,06,24);
@@ -593,6 +397,24 @@ DeficitReservePenalty_CE(i_ReserveClass) $ (ord(i_ReserveClass) = 2)     = sum(i
 DeficitReservePenalty_ECE(i_ReserveClass) $ (ord(i_ReserveClass) = 1)    = sum(i_CVP $ (ord(i_CVP) = 19), i_CVPValues(i_CVP));
 DeficitReservePenalty_ECE(i_ReserveClass) $ (ord(i_ReserveClass) = 2)    = sum(i_CVP $ (ord(i_CVP) = 20), i_CVPValues(i_CVP));
 
+*TPM ================================================================================================================================================
+Parameters
+o_NodeGenCost_TP(i_DateTime,i_Node)                                              'Generator supply cost - ($)'
+o_NodeBenefit_TP(i_DateTime,i_Node)                                              'Generator benefit ($) = Generator revenue - Generator supply cost'
+;
+
+*---------Hard-code switching off mixed constraints for transmission pricing----
+i_UseMixedConstraint = 0;
+
+*---------Hard-code primary-secondary offer for transmission pricing------------
+i_TradePeriodPrimarySecondaryOffer(i_TradePeriod,'HWA1102 WAA0','HWA1102 WAA1') = yes;
+
+*---------Pricing of deficit at Voll--------------------------------------------
+Scalar Voll                     /3000/;
+DeficitBusGenerationPenalty                                              = Voll;
+SurplusBusGenerationPenalty                                              = Voll;
+
+*TPM ================================================================================================================================================
 
 *Initialise some reporting parameters
 o_NumTradePeriods = 0;
@@ -618,31 +440,6 @@ o_OfferFIRRevenue(i_Offer) = 0;
 o_OfferSIRRevenue(i_Offer) = 0;
 
 o_SolveOK_TP(i_DateTime) = 0;
-
-
-*RDN - Initialise some of the Audit reporting parameters to zero - Start--------
-o_FIRReqd_TP(i_DateTime,i_Island) = 0;
-o_SIRReqd_TP(i_DateTime,i_Island) = 0;
-o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,i_RiskClass) = 0;
-o_GenerationRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass) = 0;
-o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,i_RiskClass) = 0;
-o_HVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass) = 0;
-o_MANURiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass) = 0;
-o_MANUHVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,i_RiskClass) = 0;
-o_HVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = 0;
-o_GenHVDCRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass) = 0;
-o_MANUHVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = 0;
-o_MANURiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = 0;
-o_FIRCleared_TP(i_DateTime,i_Island) = 0;
-o_SIRCleared_TP(i_DateTime,i_Island) = 0;
-*RDN - Initialise some of the Audit reporting parameters to zero - End----------
-
-*RDN - Update the deficit and surplus reporting at the nodal level - Start------
-TotalBusAllocation(i_DateTime,i_Bus) = 0;
-BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) = 0;
-*RDN - Update the deficit and surplus reporting at the nodal level - End------
-;
-
 
 *Determine the number of trade periods
 NumTradePeriods = card(i_TradePeriod);
@@ -682,8 +479,6 @@ for (IterationCount = 1 to NumTradePeriods,
     option clear = ACNODEANGLE;
     option clear = ACBRANCHFLOWDIRECTED_INTEGER;
     option clear = HVDCLINKFLOWDIRECTION_INTEGER;
-*RDN - Clear the integer variable to prevent intra-pole circulating branch flows
-    option clear = HVDCPOLEFLOW_INTEGER;
 *Risk/Reserve
     option clear = RESERVEBLOCK;
     option clear = RISKOFFSET;
@@ -724,9 +519,6 @@ for (IterationCount = 1 to NumTradePeriods,
     option clear = ACBRANCHLOSSESBLOCKDIRECTED;
     option clear = ACBRANCHFLOWDIRECTED_INTEGER;
     option clear = HVDCLINKFLOWDIRECTION_INTEGER;
-*RDN - Clear the integer variable to prevent intra-pole circulating branch flows
-    option clear = HVDCPOLEFLOW_INTEGER;
-
 *Mixed constraint
     option clear = MIXEDCONSTRAINTVARIABLE;
     option clear = MIXEDCONSTRAINTLIMIT2SELECT;
@@ -762,15 +554,11 @@ for (IterationCount = 1 to NumTradePeriods,
     option clear = RampRateDown;
     option clear = ReserveGenerationMaximum;
     option clear = WindOffer;
-*RDN - Clear the FKBand
-    option clear = FKBand;
     option clear = GenerationOfferMW;
     option clear = GenerationOfferPrice;
 *Don't reset the previous MW value otherwise it serves no purpose
 *   PreviousMW(i_Offer) = 0;
     option clear = ValidGenerationOfferBlock;
-*RDN - 20130227 - Clear the positive energy offer set
-    option clear = PositiveEnergyOffer;
     option clear = ReserveOfferProportion;
     option clear = ReserveOfferMaximum;
     option clear = ReserveOfferPrice;
@@ -836,8 +624,6 @@ for (IterationCount = 1 to NumTradePeriods,
     option clear = Node;
     option clear = DCBus;
     option clear = ACBus;
-*RDN - Clear the allow HVDC roundpower flag
-    option clear = AllowHVDCRoundpower;
 *Risk/Reserves
     option clear = FreeReserve;
     option clear = IslandRiskAdjustmentFactor;
@@ -857,11 +643,6 @@ for (IterationCount = 1 to NumTradePeriods,
 *RDN - Define contingent and extended contingent events for CE and ECE risks
     option clear = ContingentEvents;
     option clear = ExtendedContingentEvent;
-*RDN - Clear the HVDC secondary risk data
-    option clear = HVDCSecRisk;
-    option clear = HVDCSecRiskEnabled;
-    option clear = HVDCSecRiskSubtractor;
-    option clear = HVDCSecIslandMinimumRisk;
 
 *Branch Constraints
     option clear = BranchConstraint;
@@ -914,9 +695,6 @@ for (IterationCount = 1 to NumTradePeriods,
     option clear = HVDCBreakPointMWLoss;
     option clear = UseMixedConstraintMIP;
     option clear = CircularBranchFlowExist;
-*RDN - Clear the pole circular branch flow flag
-    option clear = PoleCircularBranchFlowExist;
-
     option clear = NorthHVDC;
     option clear = SouthHVDC;
 
@@ -950,24 +728,8 @@ for (IterationCount = 1 to NumTradePeriods,
     CurrentTradePeriod(i_TradePeriod) $ (not (i_SequentialSolve)) = yes $ i_StudyTradePeriod(i_TradePeriod);
     IterationCount $ (not (i_SequentialSolve)) = NumTradePeriods;
 
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - Start-----------
-*Updated offer initialisation - Offer must be mapped to a node that is mapped to a bus that is not in electrical island = 0 when the i_UseBusNetworkModel flag is set to true
-*Pre MSP case
-    Offer(CurrentTradePeriod,i_Offer) $ (not (i_UseBusNetworkModel(CurrentTradePeriod))
-                                         and
-                                         (sum((i_Node,i_Bus) $ (i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus)),1))
-                                        ) = yes;
-*Post MSP case
-    Offer(CurrentTradePeriod,i_Offer) $ (i_UseBusNetworkModel(CurrentTradePeriod)
-                                         and
-                                         (sum((i_Node,i_Bus) $ (i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus) and i_TradePeriodBusElectricalIsland(CurrentTradePeriod,i_Bus)),1))
-                                        ) = yes;
-*RDN - Updated offer initialisation - Offer must be mapped to a node that is mapped to a bus with non-zero allocation factor
-*    Offer(CurrentTradePeriod,i_Offer) $ (sum((i_Node,i_Bus) $ (i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus) and i_TradePeriodNodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus)),1)) = yes;
 *Initialise offer data for the current trade period
-*    Offer(CurrentTradePeriod,i_Offer) $ (sum(i_Node $ i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node),1)) = yes;
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - End-------------
-
+    Offer(CurrentTradePeriod,i_Offer) $ (sum(i_Node $ i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node),1)) = yes;
     Node(CurrentTradePeriod,i_Node) $ i_TradePeriodNode(CurrentTradePeriod,i_Node) = yes;
     OfferNode(CurrentTradePeriod,i_Offer,i_Node) $ i_TradePeriodOfferNode(CurrentTradePeriod,i_Offer,i_Node) = yes;
 
@@ -977,9 +739,6 @@ for (IterationCount = 1 to NumTradePeriods,
 
     ReserveGenerationMaximum(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 4), i_TradePeriodOfferParameter(Offer,i_OfferParam));
     WindOffer(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 5), i_TradePeriodOfferParameter(Offer,i_OfferParam));
-
-*RDN - Set the FKBand
-    FKBand(Offer) = sum(i_OfferParam $ (ord(i_OfferParam) = 6), i_TradePeriodOfferParameter(Offer,i_OfferParam));
 
 *RDN - Set the primary-secondary offer combinations
     PrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1) = i_TradePeriodPrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1);
@@ -1041,42 +800,18 @@ for (IterationCount = 1 to NumTradePeriods,
 *Initialise demand data for the current trade period
     NodeDemand(Node) = i_TradePeriodNodeDemand(Node);
 
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - Start-----------
-*Updated bid initialisation - Bid must be mapped to a node that is mapped to a bus that is not in electrical island = 0 when the i_UseBusNetworkModel flag is set to true
-*Pre MSP case
-    Bid(CurrentTradePeriod,i_Bid) $ (not (i_UseBusNetworkModel(CurrentTradePeriod))
-                                     and
-                                     (sum((i_Node,i_Bus) $ (i_TradePeriodBidNode(CurrentTradePeriod,i_Bid,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus)),1))
-                                    ) = yes;
-*Post MSP case
-    Bid(CurrentTradePeriod,i_Bid) $ (i_UseBusNetworkModel(CurrentTradePeriod)
-                                     and
-                                     (sum((i_Node,i_Bus) $ (i_TradePeriodBidNode(CurrentTradePeriod,i_Bid,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus) and i_TradePeriodBusElectricalIsland(CurrentTradePeriod,i_Bus)),1))
-                                    ) = yes;
-*RDN - Updated bid initialisation in accordance with change made to the offer definition above - Bid must be mapped to a node that is mapped to a bus with non-zero allocation factor
-*    Bid(CurrentTradePeriod,i_Bid) $ (sum((i_Node,i_Bus) $ (i_TradePeriodBidNode(CurrentTradePeriod,i_Bid,i_Node) and i_TradePeriodNodeBus(CurrentTradePeriod,i_Node,i_Bus) and i_TradePeriodNodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus)),1)) = yes;
 *Initialise bid data for the current trade period
-*    Bid(i_TradePeriod,i_Bid) $ (sum(i_Node $ i_TradePeriodBidNode(i_TradePeriod,i_Bid,i_Node),1) and CurrentTradePeriod(i_TradePeriod)) = yes;
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - End-------------
-
+    Bid(i_TradePeriod,i_Bid) $ (sum(i_Node $ i_TradePeriodBidNode(i_TradePeriod,i_Bid,i_Node),1) and CurrentTradePeriod(i_TradePeriod)) = yes;
     BidNode(Bid,i_Node) $ i_TradePeriodBidNode(Bid,i_Node) = yes;
 
     PurchaseBidMW(Bid,i_TradeBlock)
        = sum(i_EnergyBidComponent $ (ord(i_EnergyBidComponent) = 1), i_TradePeriodEnergyBid(Bid,i_TradeBlock,i_EnergyBidComponent));
     PurchaseBidPrice(Bid,i_TradeBlock)
        = sum(i_EnergyBidComponent $ (ord(i_EnergyBidComponent) = 2), i_TradePeriodEnergyBid(Bid,i_TradeBlock,i_EnergyBidComponent));
-
-*RDN - Change to demand bid
 *Valid purchaser bid blocks are defined as those with a non-zero block capacity OR a non-zero block price
 *Re-define valid purchase bid block to be a block with a positive block limit
-*    ValidPurchaseBidBlock(Bid,i_TradeBlock) $ (PurchaseBidMW(Bid,i_TradeBlock) > 0) = yes;
+    ValidPurchaseBidBlock(Bid,i_TradeBlock) $ (PurchaseBidMW(Bid,i_TradeBlock) > 0) = yes;
 *    ValidPurchaseBidBlock(Bid,i_TradeBlock) $ (PurchaseBidMW(Bid,i_TradeBlock) + PurchaseBidPrice(Bid,i_TradeBlock)) = yes;
-*Re-define valid purchase bid block to be a block with a non-zero block limit since both positive and negative limits are allowed
-*with changes to the demand bids following DSBF implementation
-    ValidPurchaseBidBlock(Bid,i_TradeBlock) $ ((not (UseDSBFDemandBidModel)) and (PurchaseBidMW(Bid,i_TradeBlock) > 0)) = yes;
-    ValidPurchaseBidBlock(Bid,i_TradeBlock) $ (UseDSBFDemandBidModel and (PurchaseBidMW(Bid,i_TradeBlock) <> 0)) = yes;
-
-*RDN - Change to demand bid - End
 
     PurchaseBidILRMW(Bid,i_TradeBlock,i_ReserveClass) $ (ord(i_ReserveClass) = 1)
        = sum(i_ILRBidComponent $ (ord(i_ILRBidComponent) = 1), i_TradePeriodFastILRBid(Bid,i_TradeBlock,i_ILRBidComponent));
@@ -1131,9 +866,6 @@ for (IterationCount = 1 to NumTradePeriods,
     HVDCHalfPoles(Branch) $ (i_TradePeriodHVDCBranch(Branch) = 2) = yes;
     ACBranch(Branch) $ (not HVDCLink(Branch)) = yes;
 
-*RDN - Flag to allow roundpower on the HVDC link
-    AllowHVDCRoundpower(CurrentTradePeriod) = i_TradePeriodAllowHVDCRoundpower(CurrentTradePeriod);
-
 *Determine sending and receiving bus sets
     ACBranchSendingBus(ACBranch,i_FromBus,i_FlowDirection) $ (sum(BranchBusDefn(ACBranch,i_FromBus,i_ToBus),1) and (ord(i_FlowDirection) = 1)) = yes;
     ACBranchReceivingBus(ACBranch,i_ToBus,i_FlowDirection) $ (sum(BranchBusDefn(ACBranch,i_FromBus,i_ToBus),1) and (ord(i_FlowDirection) = 1)) = yes;
@@ -1153,28 +885,12 @@ for (IterationCount = 1 to NumTradePeriods,
     HVDCPoleDirection(CurrentTradePeriod,i_Branch,i_FlowDirection) $ ((ord(i_FlowDirection) = 2) and (HVDCLink(CurrentTradePeriod,i_Branch)) and sum((i_Island,NodeBus(CurrentTradePeriod,i_Node,i_Bus)) $ ((ord(i_Island) = 1) and NodeIsland(CurrentTradePeriod,i_Node,i_Island) and HVDCLinkReceivingBus(CurrentTradePeriod,i_Branch,i_Bus)),1))
        = no;
 
-*RDN - Map of HVDC branch to pole
-*    HVDCPoleBranchMap('Pole1','BEN_HAY1.1') = yes;
-*    HVDCPoleBranchMap('Pole1','HAY_BEN1.1') = yes;
-*    HVDCPoleBranchMap('Pole2','BEN_HAY2.1') = yes;
-*    HVDCPoleBranchMap('Pole2','HAY_BEN2.1') = yes;
-
-*TN - Updated map of HVDC branch to pole to account for name changes to Pole 3
-    HVDCPoleBranchMap('Pole1',i_Branch) $ sum(sameas(i_Branch,'BEN_HAY1.1'),1) = yes;
-    HVDCPoleBranchMap('Pole1',i_Branch) $ sum(sameas(i_Branch,'HAY_BEN1.1'),1) = yes;
-    HVDCPoleBranchMap('Pole1',i_Branch) $ sum(sameas(i_Branch,'BEN_HAY3.1'),1) = yes;
-    HVDCPoleBranchMap('Pole1',i_Branch) $ sum(sameas(i_Branch,'HAY_BEN3.1'),1) = yes;
-    HVDCPoleBranchMap('Pole2',i_Branch) $ sum(sameas(i_Branch,'BEN_HAY2.1'),1) = yes;
-    HVDCPoleBranchMap('Pole2',i_Branch) $ sum(sameas(i_Branch,'HAY_BEN2.1'),1) = yes;
-
 *Allocate the input branch parameters to the defined model parameters
     ACBranchCapacity(ACBranch) = i_TradePeriodBranchCapacity(ACBranch);
     HVDCLinkCapacity(HVDCLink) = i_TradePeriodBranchCapacity(HVDCLink);
 
     ACBranchResistance(ACBranch) = sum(i_BranchParameter $ (ord(i_BranchParameter) = 1), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
-*RDN - Convert susceptance from -Bpu to B%
-*    ACBranchSusceptance(ACBranch) = sum(i_BranchParameter $ (ord(i_BranchParameter) = 2), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
-    ACBranchSusceptance(ACBranch) = -100*sum(i_BranchParameter $ (ord(i_BranchParameter) = 2), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
+    ACBranchSusceptance(ACBranch) = sum(i_BranchParameter $ (ord(i_BranchParameter) = 2), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
     ACBranchLossBlocks(ACBranch) = sum(i_BranchParameter $ (ord(i_BranchParameter) = 4), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
 *Ensure fixed losses for no loss branches are not included
 *    ACBranchFixedLoss(ACBranch) = sum(i_BranchParameter $ (ord(i_BranchParameter) = 3), i_TradePeriodBranchParameter(ACBranch,i_BranchParameter));
@@ -1204,31 +920,16 @@ for (IterationCount = 1 to NumTradePeriods,
 
 *The loss factor coefficients assume that the branch capacity is in MW and the resistance is in p.u.
 *Branches (AC and HVDC) with 1 loss segment
-*RDN - Ensure only the 1st loss segment is used for branches with <= 1 loss blocks - Start--------------------------
-*         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1)  and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
-*         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * ACBranchResistance(ACBranch) * ACBranchCapacity(ACBranch));
-*         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
-*         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * HVDCLinkResistance(HVDCLink) * HVDCLinkCapacity(HVDCLink));
-
-         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1)  and (not i_UseExternalLossModel) and (ord(i_LossSegment) = 1)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
-         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1) and (not i_UseExternalLossModel) and (ord(i_LossSegment) = 1)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * ACBranchResistance(ACBranch) * ACBranchCapacity(ACBranch));
-         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel) and (ord(i_LossSegment) = 1)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
-         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel) and (ord(i_LossSegment) = 1)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * HVDCLinkResistance(HVDCLink) * HVDCLinkCapacity(HVDCLink));
-
-*RDN - Ensure only the 1st loss segment is used for branches with <= 1 loss blocks - End--------------------------
+         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1)  and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
+         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * ACBranchResistance(ACBranch) * ACBranchCapacity(ACBranch));
+         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 1), i_NoLossBranch(i_LossSegment,i_LossParameter));
+         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) <= 1) and (not i_UseExternalLossModel)) = sum(i_LossParameter $ (ord(i_LossParameter) = 2), i_NoLossBranch(i_LossSegment,i_LossParameter) * HVDCLinkResistance(HVDCLink) * HVDCLinkCapacity(HVDCLink));
 
 *Use the external loss model as provided by Transpower
-*RDN - Ensure only the 1st loss segment is used for branches with 0 loss blocks - Start--------------------------
-*         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel) = MaxFlowSegment;
-*         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel) = 0;
-*         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel) = MaxFlowSegment;
-*         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel) = 0;
-
-         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel and (ord(i_LossSegment) = 1)) = MaxFlowSegment;
-         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel and (ord(i_LossSegment) = 1)) = 0;
-         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel and (ord(i_LossSegment) = 1)) = MaxFlowSegment;
-         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel and (ord(i_LossSegment) = 1)) = 0;
-*RDN - Ensure only the 1st loss segment is used for branches with 0 loss blocks - End----------------------------
+         LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel) = MaxFlowSegment;
+         LossSegmentFactor(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 0) and i_UseExternalLossModel) = 0;
+         LossSegmentMW(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel) = MaxFlowSegment;
+         LossSegmentFactor(ClosedBranch(HVDCLink),i_LossSegment) $ ((HVDCLinkLossBlocks(HVDCLink) = 0) and i_UseExternalLossModel) = 0;
 
 *Use the external loss model as provided by Transpower
          LossSegmentMW(ClosedBranch(ACBranch),i_LossSegment) $ ((ACBranchLossBlocks(ACBranch) = 1) and i_UseExternalLossModel and (ord(i_LossSegment) = 1)) = MaxFlowSegment;
@@ -1294,29 +995,13 @@ for (IterationCount = 1 to NumTradePeriods,
        = yes;
     IslandOffer(CurrentTradePeriod,i_Island,i_Offer) $ (Offer(CurrentTradePeriod,i_Offer) and sum(i_Node $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node) and NodeIsland(CurrentTradePeriod,i_Node,i_Island)),1))
        = yes;
-
-*RDN - If the i_UseExtendedRiskClass flag is set, update GenRisk and ManualRisk mapping to the RiskClass set since it now includes additional ECE risk classes associated with GenRisk and ManualRisk
-*    GenRisk(i_RiskClass) $ (ord(i_RiskClass) = 1) = yes;
-*    HVDCRisk(i_RiskClass) $ ((ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 3)) = yes;
-*    ManualRisk(i_RiskClass) $ (ord(i_RiskClass) = 4) = yes;
-    GenRisk(i_RiskClass) $ ((ord(i_RiskClass) = 1) and (not (i_UseExtendedRiskClass))) = yes;
-    GenRisk(i_RiskClass) $ (i_UseExtendedRiskClass and ((ord(i_RiskClass) = 1) or (ord(i_RiskClass) = 5))) = yes;
-    ManualRisk(i_RiskClass) $ ((ord(i_RiskClass) = 4) and (not (i_UseExtendedRiskClass))) = yes;
-    ManualRisk(i_RiskClass) $ (i_UseExtendedRiskClass and ((ord(i_RiskClass) = 4) or (ord(i_RiskClass) = 6))) = yes;
+    GenRisk(i_RiskClass) $ (ord(i_RiskClass) = 1) = yes;
     HVDCRisk(i_RiskClass) $ ((ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 3)) = yes;
-*RDN - Set the HVDCSecRisk class
-    HVDCSecRisk(i_RiskClass) $ (not (i_UseExtendedRiskClass)) = no;
-    HVDCSecRisk(i_RiskClass) $ (i_UseExtendedRiskClass and ((ord(i_RiskClass) = 7) or (ord(i_RiskClass) = 8))) = yes;
+    ManualRisk(i_RiskClass) $ (ord(i_RiskClass) = 4) = yes;
 
 *RDN - Define the CE and ECE risk class set to support the different CE and ECE CVP
-*    ExtendedContingentEvent(i_RiskClass) $ (ord(i_RiskClass) = 3) = yes;
-*    ContingentEvents(i_RiskClass) $ ((ord(i_RiskClass) = 1) or (ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 4)) = yes;
-
-*RDN - If the i_UseExtendedRiskClass flag is set, update the extended contingency event defintion to include the additional ECE risks included into the i_RiskClass set
-    ExtendedContingentEvent(i_RiskClass) $ ((ord(i_RiskClass) = 3) and (not (i_UseExtendedRiskClass))) = yes;
-    ExtendedContingentEvent(i_RiskClass) $ (i_UseExtendedRiskClass and ((ord(i_RiskClass) = 3) or (ord(i_RiskClass) = 5) or (ord(i_RiskClass) = 6) or (ord(i_RiskClass) = 8))) = yes;
-    ContingentEvents(i_RiskClass) $ ((not (i_UseExtendedRiskClass)) and ((ord(i_RiskClass) = 1) or (ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 4))) = yes;
-    ContingentEvents(i_RiskClass) $ (i_UseExtendedRiskClass and ((ord(i_RiskClass) = 1) or (ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 4) or (ord(i_RiskClass) = 7)) ) = yes;
+    ExtendedContingentEvent(i_RiskClass) $ (ord(i_RiskClass) = 3) = yes;
+    ContingentEvents(i_RiskClass) $ ((ord(i_RiskClass) = 1) or (ord(i_RiskClass) = 2) or (ord(i_RiskClass) = 4)) = yes;
 
     IslandBid(CurrentTradePeriod,i_Island,i_Bid) $ (Bid(CurrentTradePeriod,i_Bid) and sum(i_Node $ (BidNode(CurrentTradePeriod,i_Bid,i_Node) and NodeIsland(CurrentTradePeriod,i_Node,i_Island)),1))
        = yes;
@@ -1326,34 +1011,21 @@ for (IterationCount = 1 to NumTradePeriods,
 
     FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass)
        = sum(i_RiskParameter $ (ord(i_RiskParameter) = 1), i_TradePeriodRiskParameter(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter));
-
-*RDN - Zero the island risk adjustment factor when i_UseReserveModel flag is set to false - Start----------------
     IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass)
        = sum(i_RiskParameter $ (ord(i_RiskParameter) = 2), i_TradePeriodRiskParameter(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter));
-
-    IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (not (i_UseReserveModel)) = 0;
-*RDN - Zero the island risk adjustment factor when i_UseReserveModel flag is set to false - End------------------
-
     HVDCPoleRampUp(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass)
        = sum(i_RiskParameter $ (ord(i_RiskParameter) = 3), i_TradePeriodRiskParameter(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass,i_RiskParameter));
-*RDN - Index IslandMinimumRisk to cater for CE and ECE minimum risk
-*    IslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass) = i_TradePeriodManualRisk(CurrentTradePeriod,i_Island,i_ReserveClass);
-    IslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (ord(i_RiskClass) = 4) = i_TradePeriodManualRisk(CurrentTradePeriod,i_Island,i_ReserveClass);
-    IslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (ord(i_RiskClass) = 6) = i_TradePeriodManualRisk_ECE(CurrentTradePeriod,i_Island,i_ReserveClass);
+    IslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass) = i_TradePeriodManualRisk(CurrentTradePeriod,i_Island,i_ReserveClass);
 
-*RDN - HVDC secondary risk parameters
-    HVDCSecRiskEnabled(CurrentTradePeriod,i_Island,i_RiskClass) = i_TradePeriodHVDCSecRiskEnabled(CurrentTradePeriod,i_Island,i_RiskClass);
-    HVDCSecRiskSubtractor(CurrentTradePeriod,i_Island) = i_TradePeriodHVDCSecRiskSubtractor(CurrentTradePeriod,i_Island);
-*RDN - Minimum risks for the HVDC secondary risk are the same as the island minimum risk
-    HVDCSecIslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (ord(i_RiskClass) = 7) = i_TradePeriodManualRisk(CurrentTradePeriod,i_Island,i_ReserveClass);
-    HVDCSecIslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (ord(i_RiskClass) = 8) = i_TradePeriodManualRisk_ECE(CurrentTradePeriod,i_Island,i_ReserveClass);
-
-*Calculation of reserve maximum factor - 5.2.1.1.
-    ReserveClassGenerationMaximum(Offer,i_ReserveClass) = ReserveGenerationMaximum(Offer);
-    ReserveClassGenerationMaximum(Offer,i_ReserveClass) $ i_TradePeriodReserveClassGenerationMaximum(Offer,i_ReserveClass) = i_TradePeriodReserveClassGenerationMaximum(Offer,i_ReserveClass);
-
+*Calculation of reserve maximum factor
+    ReserveClassGenerationMaximum(Offer,i_ReserveClass) = sum(i_TradeBlock, GenerationOfferMW(Offer,i_TradeBlock))
+       + sum((i_TradeBlock,i_ReserveType), ReserveOfferMaximum(Offer,i_TradeBlock,i_ReserveClass,i_ReserveType));
+*Calculation 5.2.1.1.
+    ReserveMaximumFactor(Offer,i_ReserveClass) = (ReserveGenerationMaximum(Offer) / ReserveClassGenerationMaximum(Offer,i_ReserveClass)) $ ReserveClassGenerationMaximum(Offer,i_ReserveClass);
+*Not sure if this is correct since if ReserveGenerationMaximum is small, the total reserve contribution could be greater than ReserveGenerationMaximum
+*This does not seem correct.  A more appropriate factor is for the factor to be 1.  This implies that the total reserve contribution is based on the
+*magnitude of the reserve block capacity and the combined energy and reserves compared to the ReserveGenerationMaximum limit.
     ReserveMaximumFactor(Offer,i_ReserveClass) = 1;
-    ReserveMaximumFactor(Offer,i_ReserveClass) $ (ReserveClassGenerationMaximum(Offer,i_ReserveClass)>0) = (ReserveGenerationMaximum(Offer) / ReserveClassGenerationMaximum(Offer,i_ReserveClass));
 
 *Initialise branch constraint data for the current trading period
     BranchConstraint(CurrentTradePeriod,i_BranchConstraint) $ (sum(i_Branch $ (Branch(CurrentTradePeriod,i_Branch) and i_TradePeriodBranchConstraintFactors(CurrentTradePeriod,i_BranchConstraint,i_Branch)),1))
@@ -1476,24 +1148,9 @@ for (IterationCount = 1 to NumTradePeriods,
 *Constraint 3.1.1.2
     GENERATIONBLOCK.up(ValidGenerationOfferBlock) = GenerationOfferMW(ValidGenerationOfferBlock);
     GENERATIONBLOCK.fx(Offer,i_TradeBlock) $ (not ValidGenerationOfferBlock(Offer,i_TradeBlock)) = 0;
-
-*RDN - 20130226 - Fix the generation variable for generators that are not connected or do not have a non-zero energy offer
-    GENERATION.fx(CurrentTradePeriod,i_Offer) $ (not (PositiveEnergyOffer(CurrentTradePeriod,i_Offer))) = 0;
-
-*RDN - Change to demand bid
-*Constraint 3.1.1.3 and 3.1.1.4
-*    PURCHASEBLOCK.up(ValidPurchaseBidBlock) = PurchaseBidMW(ValidPurchaseBidBlock);
-    PURCHASEBLOCK.up(ValidPurchaseBidBlock) $ (not (UseDSBFDemandBidModel)) = PurchaseBidMW(ValidPurchaseBidBlock);
-    PURCHASEBLOCK.lo(ValidPurchaseBidBlock) $ (not (UseDSBFDemandBidModel)) = 0;
-
-    PURCHASEBLOCK.up(ValidPurchaseBidBlock) $ UseDSBFDemandBidModel = PurchaseBidMW(ValidPurchaseBidBlock) $ (PurchaseBidMW(ValidPurchaseBidBlock) > 0);
-    PURCHASEBLOCK.lo(ValidPurchaseBidBlock) $ UseDSBFDemandBidModel = PurchaseBidMW(ValidPurchaseBidBlock) $ (PurchaseBidMW(ValidPurchaseBidBlock) < 0);
-
+*Constraint 3.1.1.3
+    PURCHASEBLOCK.up(ValidPurchaseBidBlock) = PurchaseBidMW(ValidPurchaseBidBlock);
     PURCHASEBLOCK.fx(Bid,i_TradeBlock) $ (not ValidPurchaseBidBlock(Bid,i_TradeBlock)) = 0;
-*RDN - Change to demand bid - End
-
-*RDN - 20130226 - Fix the purchase variable for purchasers that are not connected or do not have a non-zero purchase bid
-    PURCHASE.fx(CurrentTradePeriod,i_Bid) $ (not (sum(i_TradeBlock $ ValidPurchaseBidBlock(CurrentTradePeriod,i_Bid,i_TradeBlock),1))) = 0;
 
 *Network
 *Ensure that variables used to specify flow and losses on HVDC link are zero for AC branches and for open HVDC links.
@@ -1501,47 +1158,32 @@ for (IterationCount = 1 to NumTradePeriods,
     HVDCLINKFLOW.fx(OpenBranch(HVDCLink)) = 0;
     HVDCLINKLOSSES.fx(ACBranch) = 0;
     HVDCLINKLOSSES.fx(OpenBranch(HVDCLink)) = 0;
-*RDN - 20130227 - Set HVDC link flow and losses to zero for all branches that are not HVDC link
-    HVDCLINKFLOW.fx(CurrentTradePeriod,i_Branch) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
-    HVDCLINKLOSSES.fx(CurrentTradePeriod,i_Branch) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
 *Apply an upper bound on the weighting parameter based on its definition
     LAMBDA.up(Branch,i_LossSegment) = 1;
 *Ensure that the weighting factor value is zero for AC branches and for invalid loss segments on HVDC links
     LAMBDA.fx(ACBranch,i_LossSegment) = 0;
     LAMBDA.fx(HVDCLink,i_LossSegment) $ (not (ValidLossSegment(HVDCLink,i_LossSegment))) = 0;
-*RDN - 20130227 - Set HVDC link flow and losses to zero for all branches that are not HVDC link
-    LAMBDA.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
 *Ensure that variables used to specify flow and losses on AC branches are zero for HVDC links branches and for open AC branches
     ACBRANCHFLOW.fx(HVDCLink) = 0;
     ACBRANCHFLOW.fx(OpenBranch) = 0;
-*RDN - 20130227 - Set HVDC link flow and losses to zero for all branches that are not HVDC link
-    ACBRANCHFLOW.fx(CurrentTradePeriod,i_Branch) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
     ACBRANCHFLOWDIRECTED.fx(OpenBranch,i_FlowDirection) = 0;
     ACBRANCHFLOWDIRECTED.fx(HVDCLink,i_FlowDirection) = 0;
-*RDN - 20130227 - Set AC flow and losses to zero for all branches that are not in the AC branches set
-    ACBRANCHFLOWDIRECTED.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
     ACBRANCHLOSSESDIRECTED.fx(OpenBranch,i_FlowDirection) = 0;
     ACBRANCHLOSSESDIRECTED.fx(HVDCLink,i_FlowDirection) = 0;
-*RDN - 20130227 - Set AC flow and losses to zero for all branches that are not in the AC branches set
-    ACBRANCHLOSSESDIRECTED.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
 *Ensure that variables used to specify block flow and block losses on AC branches are zero for HVDC links, open AC branches
 *and invalid loss segments on closed AC branches
     ACBRANCHFLOWBLOCKDIRECTED.fx(Branch,i_LossSegment,i_FlowDirection) $ (not (ValidLossSegment(Branch,i_LossSegment))) = 0;
     ACBRANCHFLOWBLOCKDIRECTED.fx(OpenBranch,i_LossSegment,i_FlowDirection) = 0;
     ACBRANCHFLOWBLOCKDIRECTED.fx(HVDCLink,i_LossSegment,i_FlowDirection) = 0;
-*RDN - 20130227 - Set AC block flow and block losses to zero for all branches that are not in the AC branches set
-    ACBRANCHFLOWBLOCKDIRECTED.fx(CurrentTradePeriod,i_Branch,i_LossSegment,i_FlowDirection) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
     ACBRANCHLOSSESBLOCKDIRECTED.fx(Branch,i_LossSegment,i_FlowDirection) $ (not (ValidLossSegment(Branch,i_LossSegment))) = 0;
     ACBRANCHLOSSESBLOCKDIRECTED.fx(OpenBranch,i_LossSegment,i_FlowDirection) = 0;
     ACBRANCHLOSSESBLOCKDIRECTED.fx(HVDCLink,i_LossSegment,i_FlowDirection) = 0;
-*RDN - 20130227 - Set AC block flow and block losses to zero for all branches that are not in the AC branches set
-    ACBRANCHLOSSESBLOCKDIRECTED.fx(CurrentTradePeriod,i_Branch,i_LossSegment,i_FlowDirection) $ (not Branch(CurrentTradePeriod,i_Branch)) = 0;
 
 *Ensure that the bus voltage angle for the buses corresponding to the reference nodes and the HVDC nodes are set to zero
 *Constraint 3.3.1.10
@@ -1556,14 +1198,8 @@ for (IterationCount = 1 to NumTradePeriods,
     RESERVEBLOCK.up(ValidReserveOfferBlock) = ReserveOfferMaximum(ValidReserveOfferBlock);
     PURCHASEILRBLOCK.up(ValidPurchaseBidILRBlock) = PurchaseBidILRMW(ValidPurchaseBidILRBlock);
 
-*RDN - 20130226 - Fix the reserve variable for invalid reserve offers. These are offers that are either not connected to the grid or have no reserve quantity offered.
-    RESERVE.fx(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType) $ (not (sum(i_TradeBlock $ ValidReserveOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock,i_ReserveClass,i_ReserveType),1))) = 0;
-*RDN - 20130226 - Fix the purchase ILR variable for invalid purchase reserve offers. These are offers that are either not connected to the grid or have no reserve quantity offered.
-    PURCHASEILR.fx(CurrentTradePeriod,i_Bid,i_ReserveClass) $ (not (sum(i_TradeBlock $ ValidPurchaseBidILRBlock(CurrentTradePeriod,i_Bid,i_TradeBlock,i_ReserveClass),1))) = 0;
-
 *Risk offset fixed to zero for those not mapped to corresponding mixed constraint variable
-*    RISKOFFSET.fx(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (i_UseMixedConstraintRiskOffset and i_UseMixedConstraint and (not sum(i_Type1MixedConstraint $ i_Type1MixedConstraintReserveMap(i_Type1MixedConstraint,i_Island,i_ReserveClass,i_RiskClass),1))) = 0;
-    RISKOFFSET.fx(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (i_UseMixedConstraintRiskOffset and UseMixedConstraint(CurrentTradePeriod) and (not sum(i_Type1MixedConstraint $ i_Type1MixedConstraintReserveMap(i_Type1MixedConstraint,i_Island,i_ReserveClass,i_RiskClass),1))) = 0;
+    RISKOFFSET.fx(CurrentTradePeriod,i_Island,i_ReserveClass,i_RiskClass) $ (i_UseMixedConstraint and (not sum(i_Type1MixedConstraint $ i_Type1MixedConstraintReserveMap(i_Type1MixedConstraint,i_Island,i_ReserveClass,i_RiskClass),1))) = 0;
 
 *RDN - Fix the appropriate deficit variable to zero depending on whether the different CE and ECE CVP flag is set
     DEFICITRESERVE.fx(CurrentTradePeriod,i_Island,i_ReserveClass) $ DiffCeECeCVP = 0;
@@ -1612,19 +1248,8 @@ for (IterationCount = 1 to NumTradePeriods,
     if ((ModelSolved = 1),
 *Check if there are circulating branch flows on loss AC branches and HVDC links
        CircularBranchFlowExist(ACBranch) $ (LossBranch(ACBranch) and (abs(sum(i_FlowDirection, ACBRANCHFLOWDIRECTED.l(ACBranch,i_FlowDirection)) - abs(ACBRANCHFLOW.l(ACBranch))) > CircularBranchFlowTolerance)) = 1;
-
-*RDN - Determine the circular branch flow flag on each HVDC pole
-       TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-       sum(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-       MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-       smax(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-       PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole) $ ((abs(TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole)-MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole)) > CircularBranchFlowTolerance)) = 1;
-
        NorthHVDC(CurrentTradePeriod) = sum((i_Island,i_Bus,i_Branch) $ ((ord(i_Island) = 2) and i_TradePeriodBusIsland(CurrentTradePeriod,i_Bus,i_Island) and HVDCLinkSendingBus(CurrentTradePeriod,i_Branch,i_Bus) and HVDCPoles(CurrentTradePeriod,i_Branch)), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
        SouthHVDC(CurrentTradePeriod) = sum((i_Island,i_Bus,i_Branch) $ ((ord(i_Island) = 1) and i_TradePeriodBusIsland(CurrentTradePeriod,i_Bus,i_Island) and HVDCLinkSendingBus(CurrentTradePeriod,i_Branch,i_Bus) and HVDCPoles(CurrentTradePeriod,i_Branch)), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
        CircularBranchFlowExist(CurrentTradePeriod,i_Branch) $ (HVDCPoles(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch) and (min(NorthHVDC(CurrentTradePeriod), SouthHVDC(CurrentTradePeriod)) > CircularBranchFlowTolerance)) = 1;
 
 *Check if there are non-physical losses on loss AC branches and HVDC links
@@ -1635,22 +1260,15 @@ for (IterationCount = 1 to NumTradePeriods,
        NonPhysicalLossExist(HVDCLink) $ (LossBranch(HVDCLink) and (abs(ManualLossCalculation(HVDCLink) - HVDCLINKLOSSES.l(HVDCLink)) > NonPhysicalLossTolerance)) = 1;
 
 *Invoke the UseBranchFlowMIP flag if the number of circular branch flow and non-physical loss branches exceeds the specified tolerance
-*RDN - Test - update logic to include roundpower logic
-*       UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-*         sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
-*         > UseBranchFlowMIPTolerance) = 1;
        UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-         sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), (1-AllowHVDCRoundpower(CurrentTradePeriod))*i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch))) +
-         sum(i_Pole, i_ResolveCircularBranchFlows*PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole))
+         sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
          > UseBranchFlowMIPTolerance) = 1;
 
 *Detect if branch flow MIP is needed
        BranchFlowMIPInvoked(CurrentTradePeriod) = UseBranchFlowMIP(CurrentTradePeriod);
 
 *Check branch flows for relevant mixed constraint to check if integer variables are needed
-*RDN - Updated the condition to i_UseMixedConstraintRiskOffset which is specific to the original mixed constraint application
-*       if (i_UseMixedConstraint,
-       if (i_UseMixedConstraintRiskOffset,
+       if (i_UseMixedConstraint,
           HVDCHalfPoleSouthFlow(CurrentTradePeriod) $ (sum(i_Type1MixedConstraintBranchCondition(i_Type1MixedConstraint,i_Branch) $ HVDCHalfPoles(CurrentTradePeriod,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch)) > MixedMIPTolerance) = 1;
 *RDN - Change definition to only calculate violation if the constraint limit is non-zero
 *          Type1MixedConstraintLimit2Violation(Type1MixedConstraintCondition)
@@ -1689,22 +1307,13 @@ for (IterationCount = 1 to NumTradePeriods,
           MIXEDCONSTRAINTLIMIT2SELECT.fx(CurrentTradePeriod,i_Type1MixedConstraint) $ (not UseMixedConstraintMIP(CurrentTradePeriod)) = 0;
           ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
           HVDCLINKFLOWDIRECTION_INTEGER.fx(CurrentTradePeriod,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-*RDN - Don't use the integer variables if not needed
-         HVDCPOLEFLOW_INTEGER.fx(CurrentTradePeriod,i_Pole,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-
           LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
 *Fix the values of these integer variables that are not needed
           ACBRANCHFLOWDIRECTED_INTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (HVDCLink(Branch) or (not LossBranch(Branch)) or OpenBranch(Branch))) = 0;
-*RDN - 20130227 - Fix the integer AC branch flow variable to zero for invalid branches
-          ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
-
 *Apply an upper bound on the integer weighting parameter based on its definition
           LAMBDAINTEGER.up(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ UseBranchFlowMIP(CurrentTradePeriod) = 1;
 *Ensure that the weighting factor value is zero for AC branches and for invalid loss segments on HVDC links
           LAMBDAINTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (ACBranch(Branch) or (not (ValidLossSegment(Branch,i_LossSegment) and HVDCLink(Branch))))) = 0;
-*RDN - 20130227 - Fix the lambda integer variable to zero for invalid branches
-          LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
-
 *Fix the value of some binary variables used in the mixed constraints that have no alternate limit
           MIXEDCONSTRAINTLIMIT2SELECT.fx(Type1MixedConstraint(CurrentTradePeriod,i_Type1MixedConstraint)) $ (UseMixedConstraintMIP(CurrentTradePeriod) and (not Type1MixedConstraintCondition(Type1MixedConstraint))) = 0;
 *Use the advanced basis here
@@ -1737,20 +1346,13 @@ for (IterationCount = 1 to NumTradePeriods,
 *Don't use integer variables for periods that do not need them
              ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
              HVDCLINKFLOWDIRECTION_INTEGER.fx(CurrentTradePeriod,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-*RDN - Don't use the integer varaibles if not needed
-             HVDCPOLEFLOW_INTEGER.fx(CurrentTradePeriod,i_Pole,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-
              LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
 *Fix the values of these integer variables that are not needed
              ACBRANCHFLOWDIRECTED_INTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (HVDCLink(Branch) or (not LossBranch(Branch)) or OpenBranch(Branch))) = 0;
-*RDN - 20130227 - Fix the integer AC branch flow variable to zero for invalid branches
-             ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
 *Apply an upper bound on the integer weighting parameter based on its definition
              LAMBDAINTEGER.up(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ UseBranchFlowMIP(CurrentTradePeriod) = 1;
 *Ensure that the weighting factor value is zero for AC branches and for invalid loss segments on HVDC links
              LAMBDAINTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (ACBranch(Branch) or (not (ValidLossSegment(Branch,i_LossSegment) and HVDCLink(Branch))))) = 0;
-*RDN - 20130227 - Fix the lambda integer variable to zero for invalid branches
-             LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
 *Use the advanced basis here
              option bratio = 0.25;
 *Set the optimality criteria for the MIP
@@ -1817,8 +1419,8 @@ for (IterationCount = 1 to NumTradePeriods,
           CircularBranchFlowExist(Branch) = 0;
           NorthHVDC(CurrentTradePeriod) = 0;
           SouthHVDC(CurrentTradePeriod) = 0;
-*RDN - Reset the pole circular branch flow flag
-          PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole) = 0;
+
+          CircularBranchFlowExist(Branch) = 0;
 
           ManualBranchSegmentMWFlow(i_TradePeriod,i_Branch,i_LossSegment) = 0;
           ManualLossCalculation(Branch) = 0;
@@ -1831,15 +1433,6 @@ for (IterationCount = 1 to NumTradePeriods,
           SouthHVDC(CurrentTradePeriod) = sum((i_Island,i_Bus,i_Branch) $ ((ord(i_Island) = 1) and i_TradePeriodBusIsland(CurrentTradePeriod,i_Bus,i_Island) and HVDCLinkSendingBus(CurrentTradePeriod,i_Branch,i_Bus) and HVDCPoles(CurrentTradePeriod,i_Branch)), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
           CircularBranchFlowExist(CurrentTradePeriod,i_Branch) $ (HVDCPoles(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch) and (min(NorthHVDC(CurrentTradePeriod), SouthHVDC(CurrentTradePeriod)) > CircularBranchFlowTolerance)) = 1;
 
-*RDN - Determine the circular branch flow flag on each HVDC pole
-          TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-          sum(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-          MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-          smax(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-          PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole) $ ((abs(TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole)-MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole)) > CircularBranchFlowTolerance)) = 1;
-
 *Check if there are non-physical losses on loss AC branches and HVDC links
           ManualBranchSegmentMWFlow(ValidLossSegment(ACBranch,i_LossSegment)) $ LossBranch(ACBranch) = min(max((abs(ACBRANCHFLOW.l(ACBranch))-(LossSegmentMW(ACBranch,i_LossSegment-1))$(ord(i_LossSegment) > 1)),0),ACBranchLossMW(ACBranch,i_LossSegment));
           ManualBranchSegmentMWFlow(ValidLossSegment(HVDCLink,i_LossSegment)) $ (LossBranch(HVDCLink) and (ord(i_LossSegment) <= HVDCLinkLossBlocks(HVDCLink))) = min(max((abs(HVDCLINKFLOW.l(HVDCLink))-(LossSegmentMW(HVDCLink,i_LossSegment-1))$(ord(i_LossSegment) > 1)),0),(LossSegmentMW(HVDCLink,i_LossSegment) - (LossSegmentMW(HVDCLink,i_LossSegment-1))$(ord(i_LossSegment) > 1)));
@@ -1848,19 +1441,12 @@ for (IterationCount = 1 to NumTradePeriods,
           NonPhysicalLossExist(HVDCLink) $ (LossBranch(HVDCLink) and (abs(ManualLossCalculation(HVDCLink) - HVDCLINKLOSSES.l(HVDCLink)) > NonPhysicalLossTolerance)) = 1;
 
 *Invoke the UseBranchFlowMIP flag if the number of circular branch flow and non-physical loss branches exceeds the specified tolerance
-*RDN - Test - update logic to include roundpower logic
-*          UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-*            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
-*            > UseBranchFlowMIPTolerance) = 1;
           UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), (1-AllowHVDCRoundpower(CurrentTradePeriod))*i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch))) +
-            sum(i_Pole, i_ResolveCircularBranchFlows*PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole))
+            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
             > UseBranchFlowMIPTolerance) = 1;
 
 *Check branch flows for relevant mixed constraint to check if integer variables are needed
-*RDN - Updated the condition to i_UseMixedConstraintRiskOffset which is specific to the original mixed constraint application
-*         if (i_UseMixedConstraint,
-          if (i_UseMixedConstraintRiskOffset,
+          if (i_UseMixedConstraint,
 *Reset the relevant parameters
              HVDCHalfPoleSouthFlow(CurrentTradePeriod) = 0;
              Type1MixedConstraintLimit2Violation(Type1MixedConstraintCondition) = 0;
@@ -1885,29 +1471,19 @@ for (IterationCount = 1 to NumTradePeriods,
              MIXEDCONSTRAINTLIMIT2SELECT.up(CurrentTradePeriod,i_Type1MixedConstraint) = 1;
              ACBRANCHFLOWDIRECTED_INTEGER.up(CurrentTradePeriod,i_Branch,i_FlowDirection) = +inf;
              HVDCLINKFLOWDIRECTION_INTEGER.up(CurrentTradePeriod,i_FlowDirection) = +inf;
-*RDN - Reset the bound of the integer variable
-             HVDCPOLEFLOW_INTEGER.up(CurrentTradePeriod,i_Pole,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = +inf;
-
              LAMBDAINTEGER.up(CurrentTradePeriod,i_Branch,i_LossSegment) = +inf;
 
 *Don't use integer variables for periods that do not need them
              MIXEDCONSTRAINTLIMIT2SELECT.fx(CurrentTradePeriod,i_Type1MixedConstraint) $ (not UseMixedConstraintMIP(CurrentTradePeriod)) = 0;
              ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
              HVDCLINKFLOWDIRECTION_INTEGER.fx(CurrentTradePeriod,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-*RDN - Don't use the integer variable if not needed
-             HVDCPOLEFLOW_INTEGER.fx(CurrentTradePeriod,i_Pole,i_FlowDirection) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
-
              LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (not UseBranchFlowMIP(CurrentTradePeriod)) = 0;
 *Fix the values of these integer variables that are not needed
              ACBRANCHFLOWDIRECTED_INTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (HVDCLink(Branch) or (not LossBranch(Branch)) or OpenBranch(Branch))) = 0;
-*RDN - 20130227 - Fix the AC branch flow integer variable for invalid branches
-             ACBRANCHFLOWDIRECTED_INTEGER.fx(CurrentTradePeriod,i_Branch,i_FlowDirection) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
 *Apply an upper bound on the integer weighting parameter based on its definition
              LAMBDAINTEGER.up(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ UseBranchFlowMIP(CurrentTradePeriod) = 1;
 *Ensure that the weighting factor value is zero for AC branches and for invalid loss segments on HVDC links
              LAMBDAINTEGER.fx(Branch(CurrentTradePeriod,i_Branch),i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (ACBranch(Branch) or (not (ValidLossSegment(Branch,i_LossSegment) and HVDCLink(Branch))))) = 0;
-*RDN - 20130227 - Fix the lambda integer variable to zero for invalid branches
-             LAMBDAINTEGER.fx(CurrentTradePeriod,i_Branch,i_LossSegment) $ (UseBranchFlowMIP(CurrentTradePeriod) and (not Branch(CurrentTradePeriod,i_Branch))) = 0;
 *Fix the value of some binary variables used in the mixed constraints that have no alternate limit
              MIXEDCONSTRAINTLIMIT2SELECT.fx(Type1MixedConstraint(CurrentTradePeriod,i_Type1MixedConstraint)) $ (UseMixedConstraintMIP(CurrentTradePeriod) and (not Type1MixedConstraintCondition(Type1MixedConstraint))) = 0;
 
@@ -1976,8 +1552,8 @@ for (IterationCount = 1 to NumTradePeriods,
           CircularBranchFlowExist(Branch) = 0;
           NorthHVDC(CurrentTradePeriod) = 0;
           SouthHVDC(CurrentTradePeriod) = 0;
-*RDN - Reset the pole circular branch flow parameter
-          PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole) = 0;
+
+          CircularBranchFlowExist(Branch) = 0;
 
           ManualBranchSegmentMWFlow(i_TradePeriod,i_Branch,i_LossSegment) = 0;
           ManualLossCalculation(Branch) = 0;
@@ -1990,16 +1566,6 @@ for (IterationCount = 1 to NumTradePeriods,
           SouthHVDC(CurrentTradePeriod) = sum((i_Island,i_Bus,i_Branch) $ ((ord(i_Island) = 1) and i_TradePeriodBusIsland(CurrentTradePeriod,i_Bus,i_Island) and HVDCLinkSendingBus(CurrentTradePeriod,i_Branch,i_Bus) and HVDCPoles(CurrentTradePeriod,i_Branch)), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
           CircularBranchFlowExist(CurrentTradePeriod,i_Branch) $ (HVDCPoles(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch) and (min(NorthHVDC(CurrentTradePeriod), SouthHVDC(CurrentTradePeriod)) > CircularBranchFlowTolerance)) = 1;
 
-*RDN - Determine the circular branch flow flag on each HVDC pole
-          TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-          sum(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-          MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole) =
-          smax(i_Branch $ HVDCPoleBranchMap(i_Pole,i_Branch), HVDCLINKFLOW.l(CurrentTradePeriod,i_Branch));
-
-          PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole) $ ((abs(TotalHVDCPoleFlow(CurrentTradePeriod,i_Pole)-MaxHVDCPoleFlow(CurrentTradePeriod,i_Pole)) > CircularBranchFlowTolerance)) = 1;
-
-
 *Check if there are non-physical losses on loss AC branches and HVDC links
           ManualBranchSegmentMWFlow(ValidLossSegment(ACBranch,i_LossSegment)) $ LossBranch(ACBranch) = min(max((abs(ACBRANCHFLOW.l(ACBranch))-(LossSegmentMW(ACBranch,i_LossSegment-1))$(ord(i_LossSegment) > 1)),0),ACBranchLossMW(ACBranch,i_LossSegment));
           ManualBranchSegmentMWFlow(ValidLossSegment(HVDCLink,i_LossSegment)) $ (LossBranch(HVDCLink) and (ord(i_LossSegment) <= HVDCLinkLossBlocks(HVDCLink))) = min(max((abs(HVDCLINKFLOW.l(HVDCLink))-(LossSegmentMW(HVDCLink,i_LossSegment-1))$(ord(i_LossSegment) > 1)),0),(LossSegmentMW(HVDCLink,i_LossSegment) - (LossSegmentMW(HVDCLink,i_LossSegment-1))$(ord(i_LossSegment) > 1)));
@@ -2008,19 +1574,12 @@ for (IterationCount = 1 to NumTradePeriods,
           NonPhysicalLossExist(HVDCLink) $ (LossBranch(HVDCLink) and (abs(ManualLossCalculation(HVDCLink) - HVDCLINKLOSSES.l(HVDCLink)) > NonPhysicalLossTolerance)) = 1;
 
 *Invoke the UseBranchFlowMIP flag if the number of circular branch flow and non-physical loss branches exceeds the specified tolerance
-*RDN - Test - update logic to include roundpower logic
-*          UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-*            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
-*            > UseBranchFlowMIPTolerance) = 1;
           UseBranchFlowMIP(CurrentTradePeriod) $ ((sum(i_Branch $ (ACBranch(CurrentTradePeriod,i_Branch) and LossBranch(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveACNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)) +
-            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), (1-AllowHVDCRoundpower(CurrentTradePeriod))*i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch))) +
-            sum(i_Pole, i_ResolveCircularBranchFlows*PoleCircularBranchFlowExist(CurrentTradePeriod,i_Pole))
+            sum(i_Branch $ (LossBranch(CurrentTradePeriod,i_Branch) and HVDCLink(CurrentTradePeriod,i_Branch)), i_ResolveCircularBranchFlows*CircularBranchFlowExist(CurrentTradePeriod,i_Branch) + i_ResolveHVDCNonPhysicalLosses*NonPhysicalLossExist(CurrentTradePeriod,i_Branch)))
             > UseBranchFlowMIPTolerance) = 1;
 
 *Check branch flows for relevant mixed constraint to check if integer variables are needed
-*RDN - Updated the condition to i_UseMixedConstraintRiskOffset which is specific to the original mixed constraint application
-*         if (i_UseMixedConstraint,
-          if (i_UseMixedConstraintRiskOffset,
+          if (i_UseMixedConstraint,
 *Reset the relevant parameters
              HVDCHalfPoleSouthFlow(CurrentTradePeriod) = 0;
              Type1MixedConstraintLimit2Violation(Type1MixedConstraintCondition) = 0;
@@ -2057,25 +1616,9 @@ for (IterationCount = 1 to NumTradePeriods,
 
 *Disconnected nodes are defined as follows:
 *Pre-MSP: Have no generation or load, are disconnected from the network and has a price = CVP.
-*Post-MSP: Indication to SPD whether a bus is dead or not.  Dead buses are not processed by the SPD solved and have their prices set by the
-*post-process with the following rules:
 
-*Scenario A/B/D: Price for buses in live electrical island determined by the solved
-*Scenario C/F/G/H/I: Buses in the dead electrical island with:
-*a) Null/zero load: Marked as disconnected with $0 price.
-*b) Positive load: Price = CVP for deficit generation
-*c) Negative load: Price = -CVP for surplus generation
-*Scenario E: Price for bus in live electrical island with zero load and zero cleared generation needs to be adjusted since actually is disconnected.
-
-*The Post-MSP implementation imply a mapping of a bus to an electrical island and an indication of whether this electrical island is live of dead.
-*The correction of the prices is performed by SPD.
-
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - Start-----------
-*Update the disconnected nodes logic to use the time-stamped i_UseBusNetworkModel flag
-*This allows disconnected nodes logic to work with both pre and post MSP data structure in the same gdx file
-
-$ONTEXT
 ***CANNOT HAVE SOLVE THAT HAS PRE-MSP AND POST-MSP DATA STRUCTURE IN THE SAME RUN SINCE THE DISCONNECTED NODES LOGIC WILL NOT WORK
+
     if (((i_DisconnctedNodePriceCorrection = 1) and (sum(Bus, BusElectricalIsland(Bus)) = 0)),
        BusDisconnected(Bus(CurrentTradePeriod,i_Bus)) = 1 $ ((BusGeneration(Bus) = 0) and (BusLoad(Bus) = 0) and (not sum(i_Branch $ (BranchBusConnect(CurrentTradePeriod,i_Branch,i_Bus) and ClosedBranch(CurrentTradePeriod,i_Branch)),1)));
 *Set price at identified disconnected buses to 0
@@ -2108,49 +1651,13 @@ $ONTEXT
        BusPrice(Bus) $ ((BusLoad(Bus) > 0) and (BusElectricalIsland(Bus)= 0)) = DeficitBusGenerationPenalty;
        BusPrice(Bus) $ ((BusLoad(Bus) < 0) and (BusElectricalIsland(Bus)= 0)) = -SurplusBusGenerationPenalty;
     );
-$OFFTEXT
-
-    if ((i_DisconnctedNodePriceCorrection = 1),
-*Pre-MSP case
-       BusDisconnected(Bus(CurrentTradePeriod,i_Bus)) $ (i_UseBusNetworkModel(CurrentTradePeriod) = 0)
-              = 1 $ ((BusGeneration(Bus) = 0) and (BusLoad(Bus) = 0) and (not sum(i_Branch $ (BranchBusConnect(CurrentTradePeriod,i_Branch,i_Bus) and ClosedBranch(CurrentTradePeriod,i_Branch)),1)));
-
-*Post-MSP cases
-*Scenario C/F/G/H/I:
-       BusDisconnected(Bus(CurrentTradePeriod,i_Bus)) $ (
-                                                         (i_UseBusNetworkModel(CurrentTradePeriod) = 1)
-                                                         and (BusLoad(Bus) = 0)
-                                                         and (BusElectricalIsland(Bus) = 0)
-                                                        ) = 1;
-*Scenario E:
-       BusDisconnected(Bus(CurrentTradePeriod,i_Bus)) $ ((sum(i_Bus1 $ (BusElectricalIsland(CurrentTradePeriod,i_Bus1) = BusElectricalIsland(Bus)), BusLoad(CurrentTradePeriod,i_Bus1)) = 0)
-                                                         and (sum(i_Bus1 $ (BusElectricalIsland(CurrentTradePeriod,i_Bus1) = BusElectricalIsland(Bus)), BusGeneration(CurrentTradePeriod,i_Bus1)) = 0)
-                                                         and (BusElectricalIsland(Bus) > 0)
-                                                         and (i_UseBusNetworkModel(CurrentTradePeriod) = 1)
-                                                        ) = 1;
-*Set prices at dead buses with non-zero load
-       BusPrice(Bus(CurrentTradePeriod,i_Bus)) $ ((i_UseBusNetworkModel(CurrentTradePeriod) = 1)
-                                                  and (BusLoad(Bus) > 0)
-                                                  and (BusElectricalIsland(Bus)= 0)
-                                                 ) = DeficitBusGenerationPenalty;
-
-       BusPrice(Bus(CurrentTradePeriod,i_Bus)) $ ((i_UseBusNetworkModel(CurrentTradePeriod) = 1)
-                                                  and (BusLoad(Bus) < 0)
-                                                  and (BusElectricalIsland(Bus)= 0)
-                                                 ) = -SurplusBusGenerationPenalty;
-
-*Set price at identified disconnected buses to 0
-       BusPrice(Bus) $ BusDisconnected(Bus) = 0;
-    );
-*RDN - 20130302 - i_TradePeriodNodeBusAllocationFactor update - End-------------
 
 *=================================================
 *Store results from the model solve
 *=================================================
 
 *Check if want reporting at a trade period level
-*    if (%TradePeriodReports% = 1,
-    if ((%TradePeriodReports% = 1) or (%DWMode% = -1),
+    if (%TradePeriodReports% = 1,
      loop(i_DateTimeTradePeriodMap(i_DateTime,CurrentTradePeriod),
        o_DateTime(i_DateTime) = yes;
        o_Bus(i_DateTime,i_Bus) $ (Bus(CurrentTradePeriod,i_Bus) and (not DCBus(CurrentTradePeriod,i_Bus))) = yes;
@@ -2167,15 +1674,16 @@ $OFFTEXT
        o_NodePrice_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * BusPrice(CurrentTradePeriod,i_Bus));
        o_NodeRevenue_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = (i_TradingPeriodLength/60)*(o_NodeGeneration_TP(i_DateTime,i_Node) * o_NodePrice_TP(i_DateTime,i_Node));
        o_NodeCost_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = (i_TradingPeriodLength/60)*(o_NodeLoad_TP(i_DateTime,i_Node) * o_NodePrice_TP(i_DateTime,i_Node));
+       o_NodeDeficit_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * DEFICITBUSGENERATION.l(CurrentTradePeriod,i_Bus));
+       o_NodeSurplus_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * SURPLUSBUSGENERATION.l(CurrentTradePeriod,i_Bus));
 
-*RDN - Update the deficit and surplus reporting at the nodal level - Start------
-       TotalBusAllocation(i_DateTime,i_Bus) $ Bus(CurrentTradePeriod,i_Bus) = sum(i_Node $ Node(CurrentTradePeriod,i_Node), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus));
-       BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) $ (TotalBusAllocation(i_DateTime,i_Bus) > 0) = NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus)/TotalBusAllocation(i_DateTime,i_Bus);
-*       o_NodeDeficit_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * DEFICITBUSGENERATION.l(CurrentTradePeriod,i_Bus));
-*       o_NodeSurplus_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * SURPLUSBUSGENERATION.l(CurrentTradePeriod,i_Bus));
-       o_NodeDeficit_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) * DEFICITBUSGENERATION.l(CurrentTradePeriod,i_Bus));
-       o_NodeSurplus_TP(i_DateTime,i_Node) $ Node(CurrentTradePeriod,i_Node) = sum(i_Bus $ (NodeBus(CurrentTradePeriod,i_Node,i_Bus)), BusNodeAllocationFactor(i_DateTime,i_Bus,i_Node) * SURPLUSBUSGENERATION.l(CurrentTradePeriod,i_Bus));
-*RDN - Update the deficit and surplus reporting at the nodal level - End------
+*TPM - Calculate benefit by node depending on generator, load or negative load node ========================================================================================================================================================================================================================================================================================================================================================
+       o_NodeGenCost_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) > 0)) = (i_TradingPeriodLength/60)*sum((i_Offer,i_TradeBlock) $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node) and ValidGenerationOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock)), GENERATIONBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock) * GenerationOfferPrice(CurrentTradePeriod,i_Offer,i_TradeBlock));
+       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) > 0)) = o_NodeRevenue_TP(i_DateTime,i_Node) - o_NodeGenCost_TP(i_DateTime,i_Node);
+       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) = 0)) = 0;
+       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) > 0)) = (i_TradingPeriodLength/60)*((Voll-o_NodePrice_TP(i_DateTime,i_Node))*max(0,(o_NodeLoad_TP(i_DateTime,i_Node) - o_NodeDeficit_TP(i_DateTime,i_Node))));
+       o_NodeBenefit_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeLoad_TP(i_DateTime,i_Node) < 0)) = (i_TradingPeriodLength/60)*o_NodePrice_TP(i_DateTime,i_Node)*abs(o_NodeLoad_TP(i_DateTime,i_Node));
+*TPM - End calculate benefit by node depending on generator, load or negative load node ====================================================================================================================================================================================================================================================================================================================================================
 
        o_Branch(i_DateTime,i_Branch) $ Branch(CurrentTradePeriod,i_Branch) = yes;
        o_BranchFlow_TP(i_DateTime,i_Branch) $ ACBranch(CurrentTradePeriod,i_Branch) = ACBRANCHFLOW.l(CurrentTradePeriod,i_Branch);
@@ -2209,11 +1717,10 @@ $OFFTEXT
        o_BidReserve_TP(i_DateTime,i_Bid,i_ReserveClass) $ Bid(CurrentTradePeriod,i_Bid) = PURCHASEILR.l(CurrentTradePeriod,i_Bid,i_ReserveClass);
        o_Island(i_DateTime,i_Island) = yes;
 *RDN - Update FIR and SIR required based on the CE and ECE
-*RDN - FIR and SIR required based on calculations of the island risk to overcome reporting issues of the risk setter under degenerate conditions when reserve price = 0 - See below
-*       o_FIRReqd_TP(i_DateTime,i_Island) $ (not DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass));
-*       o_SIRReqd_TP(i_DateTime,i_Island) $ (not DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass));
-*       o_FIRReqd_TP(i_DateTime,i_Island) $ (DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass) + max(DEFICITRESERVE_CE.l(CurrentTradePeriod,i_Island,i_ReserveClass),DEFICITRESERVE_ECE.l(CurrentTradePeriod,i_Island,i_ReserveClass)));
-*       o_SIRReqd_TP(i_DateTime,i_Island) $ (DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass) + max(DEFICITRESERVE_CE.l(CurrentTradePeriod,i_Island,i_ReserveClass),DEFICITRESERVE_ECE.l(CurrentTradePeriod,i_Island,i_ReserveClass)));
+       o_FIRReqd_TP(i_DateTime,i_Island) $ (not DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass));
+       o_SIRReqd_TP(i_DateTime,i_Island) $ (not DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass));
+       o_FIRReqd_TP(i_DateTime,i_Island) $ (DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass) + max(DEFICITRESERVE_CE.l(CurrentTradePeriod,i_Island,i_ReserveClass),DEFICITRESERVE_ECE.l(CurrentTradePeriod,i_Island,i_ReserveClass)));
+       o_SIRReqd_TP(i_DateTime,i_Island) $ (DiffCeECeCVP) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), MAXISLANDRISK.l(CurrentTradePeriod,i_Island,i_ReserveClass) + max(DEFICITRESERVE_CE.l(CurrentTradePeriod,i_Island,i_ReserveClass),DEFICITRESERVE_ECE.l(CurrentTradePeriod,i_Island,i_ReserveClass)));
 
        o_FIRPrice_TP(i_DateTime,i_Island) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), SupplyDemandReserveRequirement.m(CurrentTradePeriod,i_Island,i_ReserveClass));
        o_SIRPrice_TP(i_DateTime,i_Island) = sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), SupplyDemandReserveRequirement.m(CurrentTradePeriod,i_Island,i_ReserveClass));
@@ -2262,162 +1769,6 @@ $OFFTEXT
       o_HVDCLoss_TP(i_DateTime,i_Island) = o_HVDCHalfPoleLoss_TP(i_DateTime,i_Island) + o_HVDCPoleFixedLoss_TP(i_DateTime,i_Island) +
                                          sum((i_Branch,i_FromBus,i_ToBus) $ (HVDCLink(CurrentTradePeriod,i_Branch) and ClosedBranch(CurrentTradePeriod,i_Branch) and BranchBusDefn(CurrentTradePeriod,i_Branch,i_FromBus,i_ToBus) and BusIsland(CurrentTradePeriod,i_ToBus,i_Island) and (not (BusIsland(CurrentTradePeriod,i_FromBus,i_Island)))), o_BranchDynamicLoss_TP(i_DateTime,i_Branch));
       o_IslandRefPrice_TP(i_DateTime,i_Island) = sum(i_Node $ (ReferenceNode(CurrentTradePeriod,i_Node) and NodeIsland(CurrentTradePeriod,i_Node,i_Island)), o_NodePrice_TP(i_DateTime,i_Node));
-
-*TN - Additional output for audit reporting
-      o_ACBusAngle(i_DateTime,i_Bus) = ACNODEANGLE.l(CurrentTradePeriod,i_Bus);
-
-      o_NonPhysicalLoss(i_DateTime,i_Branch) $ ACBranch(CurrentTradePeriod,i_Branch) = abs(ManualLossCalculation(CurrentTradePeriod,i_Branch) - sum(i_FlowDirection, ACBRANCHLOSSESDIRECTED.l(CurrentTradePeriod,i_Branch,i_FlowDirection)));
-      o_NonPhysicalLoss(i_DateTime,i_Branch) $ HVDCLink(CurrentTradePeriod,i_Branch) = abs(ManualLossCalculation(CurrentTradePeriod,i_Branch) - HVDCLINKLOSSES.l(CurrentTradePeriod,i_Branch));
-
-      o_LossSegmentBreakPoint(i_DateTime,i_Branch,i_LossSegment) $ ValidLossSegment(CurrentTradePeriod,i_Branch,i_LossSegment) = LossSegmentMW(CurrentTradePeriod,i_Branch,i_LossSegment);
-      o_LossSegmentFactor(i_DateTime,i_Branch,i_LossSegment) $ ValidLossSegment(CurrentTradePeriod,i_Branch,i_LossSegment) = LossSegmentFactor(CurrentTradePeriod,i_Branch,i_LossSegment);
-
-      o_BusIsland_TP(i_DateTime,i_Bus,i_Island) $ BusIsland(CurrentTradePeriod,i_Bus,i_Island) = yes;
-
-      o_PLRO_FIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 1) and (ord(i_ReserveType) = 1)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-      o_PLRO_SIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 2) and (ord(i_ReserveType) = 1)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-      o_TWRO_FIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 1) and (ord(i_ReserveType) = 2)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-      o_TWRO_SIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 2) and (ord(i_ReserveType) = 2)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-      o_ILRO_FIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 1) and (ord(i_ReserveType) = 3)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-      o_ILRO_SIR_TP(i_DateTime,i_Offer) $ Offer(CurrentTradePeriod,i_Offer) = sum[(i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 2) and (ord(i_ReserveType) = 3)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)];
-
-      o_ILBus_FIR_TP(i_DateTime,i_Bus) = sum[i_Offer $ sameas(i_Offer,i_Bus), o_ILRO_FIR_TP(i_DateTime,i_Offer)];
-      o_ILBus_SIR_TP(i_DateTime,i_Bus) = sum[i_Offer $ sameas(i_Offer,i_Bus), o_ILRO_SIR_TP(i_DateTime,i_Offer)];
-
-      o_MarketNodeIsland_TP(i_DateTime,i_Offer,i_Island) $ sum[(i_Node,i_Bus) $ [BusIsland(CurrentTradePeriod,i_Bus,i_Island)
-                                                                             and NodeBus(CurrentTradePeriod,i_Node,i_Bus)
-                                                                             and OfferNode(CurrentTradePeriod,i_Offer,i_Node)
-                                                                             and (o_NodeLoad_TP(i_DateTime,i_Node)  = 0)
-                                                                                ],1] = yes;
-
-      o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,GenRisk) $  [not UsePrimSecGenRiskModel
-                                                                                 and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                    ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk) * [GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                            - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk)
-                                                                                            + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                            + sum(i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType))
-                                                                                             ];
-
-      o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,GenRisk) $ [UsePrimSecGenRiskModel
-                                                                                and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                and ( not (HasSecondaryOffer(CurrentTradePeriod,i_Offer) or HasPrimaryOffer(CurrentTradePeriod,i_Offer))                                                                                          )
-                                                                                   ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk) * [GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                            - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk)
-                                                                                            + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                            + sum(i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType))
-                                                                                             ];
-
-      o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,GenRisk) $  [UsePrimSecGenRiskModel
-                                                                                 and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                 and HasSecondaryOffer(CurrentTradePeriod,i_Offer)
-                                                                                    ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk) * [ GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                              + sum[i_Offer1 $ PrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1), GENERATION.l(CurrentTradePeriod,i_Offer1)]
-                                                                                              - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,GenRisk)
-                                                                                              + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                              + sum[i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType)]
-                                                                                              + sum[(i_Offer1,i_ReserveType) $ PrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1), RESERVE.l(CurrentTradePeriod,i_Offer1,i_ReserveClass,i_ReserveType)]
-                                                                                              ];
-      o_GenerationRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass) = SMax[GenRisk, o_GenerationRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,GenRisk)];
-
-
-      o_HVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,HVDCRisk) =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCRisk) * [HVDCREC.l(CurrentTradePeriod,i_Island)
-                                                                                             - RISKOFFSET.l(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCRisk)
-                                                                                              ];
-
-      o_MANURiskSetter(i_DateTime,i_Island,i_ReserveClass,ManualRisk) =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,ManualRisk) * [IslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,ManualRisk)
-                                                                                               - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,ManualRisk)
-                                                                                                ];
-
-      o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,HVDCSecRisk) $ [ (not (UsePrimSecGenRiskModel)) and HVDCSecRiskEnabled(CurrentTradePeriod,i_Island,HVDCSecRisk)
-                                                                                  and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                    ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk) * [ GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                                 - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk)
-                                                                                                 + HVDCREC.l(CurrentTradePeriod,i_Island)
-                                                                                                 - HVDCSecRiskSubtractor(CurrentTradePeriod,i_Island)
-                                                                                                 + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                                 + sum(i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType))
-                                                                                                 ];
-
-
-      o_MANUHVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,HVDCSecRisk)  $ HVDCSecRiskEnabled(CurrentTradePeriod,i_Island,HVDCSecRisk) =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk) * [ HVDCSecIslandMinimumRisk(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk)
-                                                                                                 - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk)
-                                                                                                 + HVDCREC.l(CurrentTradePeriod,i_Island)
-                                                                                                 - HVDCSecRiskSubtractor(CurrentTradePeriod,i_Island)
-                                                                                                 ];
-
-*TN - Additional output for audit reporting - End
-
-*RDN - Included reporting of risk - Start-----------------
-      o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,HVDCSecRisk) $ [ UsePrimSecGenRiskModel and HVDCSecRiskEnabled(CurrentTradePeriod,i_Island,HVDCSecRisk)
-                                                                                  and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                  and (not (HasSecondaryOffer(CurrentTradePeriod,i_Offer) or HasPrimaryOffer(CurrentTradePeriod,i_Offer)))
-                                                                                    ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk) * [ GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                                 - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk)
-                                                                                                 + HVDCREC.l(CurrentTradePeriod,i_Island)
-                                                                                                 - HVDCSecRiskSubtractor(CurrentTradePeriod,i_Island)
-                                                                                                 + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                                 + sum(i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType))
-                                                                                                 ];
-
-
-      o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,HVDCSecRisk) $ [ UsePrimSecGenRiskModel and HVDCSecRiskEnabled(CurrentTradePeriod,i_Island,HVDCSecRisk)
-                                                                                  and IslandRiskGenerator(CurrentTradePeriod,i_Island,i_Offer)
-                                                                                  and HasSecondaryOffer(CurrentTradePeriod,i_Offer)
-                                                                                    ] =
-            IslandRiskAdjustmentFactor(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk) * [ GENERATION.l(CurrentTradePeriod,i_Offer)
-                                                                                                 + sum[i_Offer1 $ PrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1), GENERATION.l(CurrentTradePeriod,i_Offer1)]
-                                                                                                 - FreeReserve(CurrentTradePeriod,i_Island,i_ReserveClass,HVDCSecRisk)
-                                                                                                 + HVDCREC.l(CurrentTradePeriod,i_Island)
-                                                                                                 - HVDCSecRiskSubtractor(CurrentTradePeriod,i_Island)
-                                                                                                 + FKBand(CurrentTradePeriod,i_Offer)
-                                                                                                 + sum(i_ReserveType, RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType))
-                                                                                                 + sum[(i_Offer1,i_ReserveType) $ PrimarySecondaryOffer(CurrentTradePeriod,i_Offer,i_Offer1), RESERVE.l(CurrentTradePeriod,i_Offer1,i_ReserveClass,i_ReserveType)]
-                                                                                                 ];
-
-
-      o_GenHVDCRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass) = SMax[HVDCSecRisk, o_GenHVDCRiskSetter(i_DateTime,i_Island,i_Offer,i_ReserveClass,HVDCSecRisk)];
-
-
-      o_HVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = Smax[HVDCRisk, o_HVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,HVDCRisk)];
-      o_MANURiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = Smax[ManualRisk, o_MANURiskSetter(i_DateTime,i_Island,i_ReserveClass,ManualRisk)];
-      o_MANUHVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass) = Smax[HVDCSecRisk, o_MANUHVDCRiskSetter(i_DateTime,i_Island,i_ReserveClass,HVDCSecRisk)];
-
-*RDN - FIR and SIR required based on calculations of the island risk to overcome reporting issues of the risk setter under degenerate conditions when reserve price = 0 - See below
-      o_FIRReqd_TP(i_DateTime,i_Island) = Max [ 0,
-                                                Smax((i_ReserveClass,i_Offer) $ (ord(i_ReserveClass) = 1), o_GenerationRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), o_HVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), o_MANURiskSetterMax(i_DateTime,i_Island,i_ReserveClass)),
-                                                Smax((i_ReserveClass,i_Offer) $ (ord(i_ReserveClass) = 1), o_GenHVDCRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 1), o_MANUHVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass))
-                                              ];
-
-
-      o_SIRReqd_TP(i_DateTime,i_Island) = Max [ 0,
-                                                Smax((i_ReserveClass,i_Offer) $ (ord(i_ReserveClass) = 2), o_GenerationRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), o_HVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), o_MANURiskSetterMax(i_DateTime,i_Island,i_ReserveClass)),
-                                                Smax((i_ReserveClass,i_Offer) $ (ord(i_ReserveClass) = 2), o_GenHVDCRiskSetterMax(i_DateTime,i_Island,i_Offer,i_ReserveClass)),
-                                                sum(i_ReserveClass $ (ord(i_ReserveClass) = 2), o_MANUHVDCRiskSetterMax(i_DateTime,i_Island,i_ReserveClass))
-                                              ];
-
-
-      o_OfferIsland_TP(i_DateTime,i_Offer,i_Island) $ sum[(i_Node,i_Bus) $ [BusIsland(CurrentTradePeriod,i_Bus,i_Island)
-                                                                             and NodeBus(CurrentTradePeriod,i_Node,i_Bus)
-                                                                             and OfferNode(CurrentTradePeriod,i_Offer,i_Node)
-                                                                           ],1] = yes;
-
-       o_FIRCleared_TP(i_DateTime,i_Island) = sum((i_Offer, i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 1) and Offer(CurrentTradePeriod,i_Offer) and o_OfferIsland_TP(i_DateTime,i_Offer,i_Island)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType));
-       o_SIRCleared_TP(i_DateTime,i_Island) = sum((i_Offer, i_ReserveClass,i_ReserveType) $ [(ord(i_ReserveClass) = 2) and Offer(CurrentTradePeriod,i_Offer) and o_OfferIsland_TP(i_DateTime,i_Offer,i_Island)], RESERVE.l(CurrentTradePeriod,i_Offer,i_ReserveClass,i_ReserveType));
-
-*RDN - Included reporting of risk - End-----------------
 
 
 *Summary reporting
@@ -2472,7 +1823,6 @@ $OFFTEXT
                                       + o_SurpT1MixedConst_TP(i_DateTime) + o_DefGenericConst_TP(i_DateTime) + o_SurpGenericConst_TP(i_DateTime) + o_DefResv_TP(i_DateTime);
      );
     );
-
 
 *Summary reports
 *System level
@@ -2600,7 +1950,9 @@ if (%TradePeriodReports% = 1,
                                                                       o_BranchFixedLoss_TP, o_BranchFromBusPrice_TP, o_BranchToBusPrice_TP
                                                                       o_BranchMarginalPrice_TP, o_BranchTotalRentals_TP, o_BranchCapacity_TP;
 
-   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_NodeOutput_TP.gdx', o_Node, o_NodeGeneration_TP, o_NodeLoad_TP, o_NodePrice_TP, o_NodeRevenue_TP, o_NodeCost_TP, o_NodeDeficit_TP, o_NodeSurplus_TP;
+*TPM---
+   execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_NodeOutput_TP.gdx', o_Node, o_NodeGeneration_TP, o_NodeLoad_TP, o_NodePrice_TP, o_NodeRevenue_TP, o_NodeCost_TP, o_NodeDeficit_TP, o_NodeSurplus_TP, o_NodeBenefit_TP;
+*TPM---
 
    execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_OfferOutput_TP.gdx', o_Offer, o_OfferEnergy_TP, o_OfferFIR_TP, o_OfferSIR_TP;
 
@@ -2609,17 +1961,6 @@ if (%TradePeriodReports% = 1,
    execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_BrConstraintOutput_TP.gdx', o_BrConstraint_TP, o_BrConstraintSense_TP, o_BrConstraintLHS_TP, o_BrConstraintRHS_TP, o_BrConstraintPrice_TP;
 
    execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_MNodeConstraintOutput_TP.gdx', o_MNodeConstraint_TP, o_MNodeConstraintSense_TP, o_MNodeConstraintLHS_TP, o_MNodeConstraintRHS_TP, o_MNodeConstraintPrice_TP;
-
-*TN - Additional output for audit reporting
-   if (%DWMode%=-1,
-      execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_AuditOutput_TP.gdx', o_ACBusAngle, o_LossSegmentBreakPoint, o_LossSegmentFactor
-                                                                                    o_NonPhysicalLoss, o_BusIsland_TP, o_MarketNodeIsland_TP
-                                                                                    o_ILRO_FIR_TP, o_ILRO_SIR_TP, o_ILBus_FIR_TP, o_ILBus_SIR_TP
-                                                                                    o_PLRO_FIR_TP, o_PLRO_SIR_TP, o_TWRO_FIR_TP, o_TWRO_SIR_TP
-                                                                                    o_GenerationRiskSetter, o_GenHVDCRiskSetter, o_HVDCRiskSetter
-                                                                                    o_MANURiskSetter, o_MANUHVDCRiskSetter, o_FIRCleared_TP, o_SIRCleared_TP;
-   );
-*TN - Additional output for audit reporting - End
 
 );
 
